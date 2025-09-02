@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
   ],
   // GitHub Pages configuration
-  base: process.env.NODE_ENV === 'production' ? '/workout-app/' : '/',
+  base: process.env.NODE_ENV === 'production' ? 'https://techguyty.github.io/workout-app/' : '/',
   server: {
     host: '0.0.0.0',
     port: 5173
