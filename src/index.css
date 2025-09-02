@@ -1,0 +1,151 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  body {
+    @apply bg-gray-900 text-white;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .medieval-title {
+    font-family: 'Cinzel', serif;
+    @apply text-2xl font-bold text-medieval-400;
+  }
+  
+  .medieval-subtitle {
+    font-family: 'Cinzel', serif;
+    @apply text-lg font-semibold text-medieval-300;
+  }
+  
+  .card {
+    @apply bg-gray-800 rounded-lg border border-gray-700 shadow-lg;
+  }
+  
+  .card-header {
+    @apply px-4 py-3 border-b border-gray-700;
+  }
+  
+  .card-body {
+    @apply px-4 py-3;
+  }
+  
+  .btn-primary {
+    @apply bg-medieval-600 hover:bg-medieval-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+  
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+  
+  .input-field {
+    @apply bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-medieval-500 focus:border-transparent;
+  }
+  
+  .nav-link {
+    @apply flex items-center px-3 py-2 text-sm font-medium text-gray-300 rounded-md hover:text-white hover:bg-gray-700 transition-colors duration-200;
+  }
+  
+  .nav-link.active {
+    @apply bg-medieval-600 text-white;
+  }
+  
+  .muscle-group-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .exercise-card {
+    @apply card hover:border-medieval-500 transition-all duration-200 cursor-pointer;
+  }
+  
+  .set-row {
+    @apply flex items-center space-x-3 p-3 bg-gray-700 rounded-lg border border-gray-600;
+  }
+  
+  .rest-timer {
+    @apply bg-medieval-600 text-white px-3 py-1 rounded-full text-sm font-medium;
+  }
+  
+  .progress-bar {
+    @apply bg-gray-700 rounded-full h-2;
+  }
+  
+  .progress-fill {
+    @apply bg-medieval-500 h-2 rounded-full transition-all duration-300;
+  }
+}
+
+@layer utilities {
+  .text-shadow {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  
+  .medieval-border {
+    border-image: linear-gradient(45deg, #f2751a, #bc420f) 1;
+  }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-800;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500;
+}
+
+/* Animation classes */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+.bounce-gentle {
+  animation: bounceGentle 0.6s ease-in-out;
+}
+
+/* Focus styles for accessibility */
+*:focus {
+  @apply outline-none ring-2 ring-medieval-500 ring-offset-2 ring-offset-gray-900;
+}
+
+/* Dark mode overrides */
+@media (prefers-color-scheme: dark) {
+  .card {
+    @apply bg-gray-800 border-gray-700;
+  }
+  
+  .input-field {
+    @apply bg-gray-700 border-gray-600;
+  }
+}
