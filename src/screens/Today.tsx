@@ -275,8 +275,13 @@ function ExerciseInputForm({
   }
 
   const handleSubmit = async () => {
-    if (sets.some(set => set.weight <= 0)) {
+    if (sets.some(set => !set.weight || set.weight <= 0)) {
       alert('Please enter weight for all sets')
+      return
+    }
+
+    if (sets.some(set => !set.reps || set.reps <= 0)) {
+      alert('Please enter reps for all sets')
       return
     }
 
@@ -321,23 +326,25 @@ function ExerciseInputForm({
                 </label>
                 <input
                   type="number"
-                  value={set.weight}
-                  onChange={(e) => updateSet(index, 'weight', Number(e.target.value))}
+                  value={set.weight || ''}
+                  onChange={(e) => updateSet(index, 'weight', Number(e.target.value) || 0)}
                   className="input-field w-full"
-                  placeholder="0"
+                  placeholder="Enter weight"
                   min="0"
                   step="0.5"
+                  inputMode="numeric"
                 />
               </div>
               <div className="flex-1">
                 <label className="block text-sm text-gray-400 mb-1">Reps</label>
                 <input
                   type="number"
-                  value={set.reps}
-                  onChange={(e) => updateSet(index, 'reps', Number(e.target.value))}
+                  value={set.reps || ''}
+                  onChange={(e) => updateSet(index, 'reps', Number(e.target.value) || 1)}
                   className="input-field w-full"
-                  placeholder="10"
+                  placeholder="Enter reps"
                   min="1"
+                  inputMode="numeric"
                 />
               </div>
             </div>
