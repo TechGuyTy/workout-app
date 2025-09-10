@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { db } from '../lib/database'
-import { Workout, Set, Exercise } from '../types/database'
+import { Set, Exercise } from '../types/database'
 import { formatDate, getDateRange, calculate1RM, formatDuration } from '../lib/utils'
 import { 
   CalendarIcon, 
@@ -8,10 +8,20 @@ import {
   TrashIcon
 } from '@heroicons/react/24/outline'
 
+type CombinedWorkout = {
+  type: 'workout' | 'session'
+  id: number
+  date: string
+  notes?: string
+  duration?: number
+  muscleGroup?: string
+  status?: string
+}
+
 export default function History() {
-  const [workouts, setWorkouts] = useState<Workout[]>([])
+  const [combinedWorkouts, setCombinedWorkouts] = useState<CombinedWorkout[]>([])
   const [exercises, setExercises] = useState<Exercise[]>([])
-  const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null)
+  const [selectedWorkout, setSelectedWorkout] = useState<CombinedWorkout | null>(null)
   const [workoutSets, setWorkoutSets] = useState<Set[]>([])
   const [dateRange, setDateRange] = useState(30) // days
   const [isLoading, setIsLoading] = useState(true)
@@ -25,8 +35,36 @@ export default function History() {
     try {
       setIsLoading(true)
       const { start, end } = getDateRange(dateRange)
-      const workoutList = await db.getWorkoutsByDateRange(start, end)
-      setWorkouts(workoutList)
+      
+      // Load both old workouts and new workout sessions
+      const [workouts, workoutSessions] = await Promise.all([
+        db.getWorkoutsByDateRange(start, end),
+        db.getCompletedWorkoutSessions(start, end)
+      ])
+      
+      // Combine them into a unified list
+      const combined: CombinedWorkout[] = [
+        ...workouts.map(w => ({
+          type: 'workout' as const,
+          id: w.id!,
+          date: w.date,
+          notes: w.notes,
+          duration: w.duration
+        })),
+        ...workoutSessions.map(s => ({
+          type: 'session' as const,
+          id: s.id!,
+          date: s.date,
+          notes: `${s.muscleGroup} Day`,
+          muscleGroup: s.muscleGroup,
+          status: s.status
+        }))
+      ]
+      
+      // Sort by date (newest first)
+      combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      
+      setCombinedWorkouts(combined)
     } catch (error) {
       console.error('Failed to load workouts:', error)
     } finally {
@@ -43,12 +81,38 @@ export default function History() {
     }
   }
 
-  const loadWorkoutDetails = async (workout: Workout) => {
+  const loadWorkoutDetails = async (workout: CombinedWorkout) => {
     try {
-      const sets = await db.sets
-        .where('workoutId')
-        .equals(workout.id!)
-        .toArray()
+      let sets: Set[] = []
+      
+      if (workout.type === 'workout') {
+        // Load sets from old workout system
+        sets = await db.sets
+          .where('workoutId')
+          .equals(workout.id)
+          .toArray()
+      } else {
+        // Load sets from workout session system
+        const sessionData = await db.getWorkoutSessionWithExercises(workout.id)
+        if (sessionData) {
+          // Get all sets for exercises completed in this session
+          const exerciseIds = sessionData.completions.map(c => c.exerciseId)
+          const sessionDate = sessionData.session.date
+          
+          for (const exerciseId of exerciseIds) {
+            const exerciseSets = await db.sets
+              .where('exerciseId')
+              .equals(exerciseId)
+              .filter(set => {
+                const setDate = new Date(set.timestamp).toISOString().split('T')[0]
+                return setDate === sessionDate
+              })
+              .toArray()
+            sets.push(...exerciseSets)
+          }
+        }
+      }
+      
       setWorkoutSets(sets)
       setSelectedWorkout(workout)
     } catch (error) {
@@ -139,17 +203,17 @@ export default function History() {
         <div className="lg:col-span-1">
           <div className="card">
             <div className="card-header">
-              <h3 className="medieval-subtitle">Workouts ({workouts.length})</h3>
+              <h3 className="medieval-subtitle">Workouts ({combinedWorkouts.length})</h3>
             </div>
             <div className="card-body">
-              {workouts.length === 0 ? (
+              {combinedWorkouts.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
                   <CalendarIcon className="h-12 w-12 mx-auto mb-4 text-gray-600" />
                   <p>No workouts found in this time period</p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {workouts.map((workout) => (
+                  {combinedWorkouts.map((workout) => (
                     <div
                       key={workout.id}
                       className={`p-3 rounded-lg border cursor-pointer transition-colors ${
@@ -167,6 +231,9 @@ export default function History() {
                           {workout.notes && (
                             <div className="text-sm text-gray-400 truncate">
                               {workout.notes}
+                              {workout.type === 'session' && (
+                                <span className="ml-2 text-xs text-medieval-400">(New)</span>
+                              )}
                             </div>
                           )}
                         </div>

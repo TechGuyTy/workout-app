@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { db } from '../lib/database'
-import { Exercise } from '../types/database'
+import { Exercise, WorkoutSession } from '../types/database'
 import { 
   CheckIcon,
   XMarkIcon,
-  ArrowLeftIcon
+  ArrowLeftIcon,
+  TrophyIcon
 } from '@heroicons/react/24/outline'
 
 const MUSCLE_GROUPS = [
@@ -19,7 +20,9 @@ export default function Today() {
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null)
   const [completedExercises, setCompletedExercises] = useState<Set<number>>(new Set())
+  const [currentSession, setCurrentSession] = useState<WorkoutSession | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isCompleting, setIsCompleting] = useState(false)
 
   useEffect(() => {
     loadTodayStatus()
@@ -29,6 +32,7 @@ export default function Today() {
     try {
       const session = await db.getTodayWorkoutSession()
       if (session) {
+        setCurrentSession(session)
         setSelectedMuscleGroup(session.muscleGroup)
         await loadExercises(session.muscleGroup)
         await loadCompletedExercises()
@@ -60,7 +64,8 @@ export default function Today() {
   const selectMuscleGroup = async (muscleGroup: string) => {
     try {
       setIsLoading(true)
-      await db.getOrCreateTodayWorkoutSession(muscleGroup)
+      const session = await db.getOrCreateTodayWorkoutSession(muscleGroup)
+      setCurrentSession(session)
       setSelectedMuscleGroup(muscleGroup)
       await loadExercises(muscleGroup)
       await loadCompletedExercises()
@@ -75,6 +80,23 @@ export default function Today() {
     setSelectedMuscleGroup(null)
     setSelectedExercise(null)
     setCompletedExercises(new Set())
+    setCurrentSession(null)
+  }
+
+  const completeWorkout = async () => {
+    if (!currentSession || completedExercises.size === 0) return
+    
+    try {
+      setIsCompleting(true)
+      await db.completeWorkoutSession(currentSession.id!)
+      alert('Workout completed! Check your history to see the results.')
+      resetWorkout()
+    } catch (error) {
+      console.error('Failed to complete workout:', error)
+      alert('Failed to complete workout. Please try again.')
+    } finally {
+      setIsCompleting(false)
+    }
   }
 
   if (!selectedMuscleGroup) {
@@ -172,13 +194,27 @@ export default function Today() {
       </div>
 
       {completedExercises.size > 0 && (
-        <div className="text-center">
+        <div className="text-center space-y-4">
           <div className="text-lg text-gray-300 mb-2">
             {completedExercises.size} of {exercises.length} exercises completed
           </div>
           <div className="text-sm text-gray-400">
-            Great work! Keep going or mark workout complete
+            Great work! Keep going or complete your workout
           </div>
+          <button
+            onClick={completeWorkout}
+            disabled={isCompleting}
+            className="btn-primary px-6 py-3 text-lg"
+          >
+            {isCompleting ? (
+              'Completing...'
+            ) : (
+              <>
+                <TrophyIcon className="h-5 w-5 mr-2" />
+                Complete Workout
+              </>
+            )}
+          </button>
         </div>
       )}
     </div>

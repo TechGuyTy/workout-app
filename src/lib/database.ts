@@ -253,6 +253,87 @@ export class WorkoutDatabase extends Dexie {
       .toArray();
   }
 
+  // Methods for History screen - get workout sessions for display
+  async getWorkoutSessionsByDateRange(startDate: string, endDate: string): Promise<WorkoutSession[]> {
+    return await this.workoutSessions
+      .where('date')
+      .between(startDate, endDate)
+      .reverse()
+      .sortBy('date');
+  }
+
+  async getCompletedWorkoutSessions(startDate: string, endDate: string): Promise<WorkoutSession[]> {
+    const sessions = await this.getWorkoutSessionsByDateRange(startDate, endDate);
+    return sessions.filter(session => session.status === 'completed');
+  }
+
+  async getWorkoutSessionWithExercises(sessionId: number): Promise<{
+    session: WorkoutSession;
+    completions: ExerciseCompletion[];
+  } | null> {
+    const session = await this.workoutSessions.get(sessionId);
+    if (!session) return null;
+
+    const completions = await this.exerciseCompletions
+      .where('workoutSessionId')
+      .equals(sessionId)
+      .toArray();
+
+    return { session, completions };
+  }
+
+  // Complete workout functionality
+  async completeWorkoutSession(sessionId: number, notes?: string, duration?: number): Promise<Workout> {
+    const session = await this.workoutSessions.get(sessionId);
+    if (!session) throw new Error('Workout session not found');
+
+    // Mark session as completed
+    await this.workoutSessions.update(sessionId, {
+      status: 'completed',
+      updatedAt: new Date()
+    });
+
+    // Create a Workout record for backward compatibility
+    const workoutId = await this.workouts.add({
+      date: session.date,
+      notes: notes || `${session.muscleGroup} Day`,
+      duration,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    // Update all sets with workoutId 0 to use the new workout ID
+    const setsToUpdate = await this.sets
+      .where('workoutId')
+      .equals(0)
+      .toArray();
+
+    // Filter sets that belong to this session's exercises
+    const completions = await this.exerciseCompletions
+      .where('workoutSessionId')
+      .equals(sessionId)
+      .toArray();
+    
+    const sessionExerciseIds = new Set(completions.map(c => c.exerciseId));
+    const sessionSets = setsToUpdate.filter(set => 
+      sessionExerciseIds.has(set.exerciseId) &&
+      new Date(set.timestamp).toISOString().split('T')[0] === session.date
+    );
+
+    // Update the sets to reference the new workout
+    for (const set of sessionSets) {
+      await this.sets.update(set.id!, {
+        workoutId: workoutId as number,
+        updatedAt: new Date()
+      });
+    }
+
+    const newWorkout = await this.workouts.get(workoutId);
+    if (!newWorkout) throw new Error('Failed to create workout record');
+    
+    return newWorkout;
+  }
+
   // Migration helper
   async seedInitialData() {
     const exerciseCount = await this.exercises.count();
@@ -544,6 +625,8 @@ export class WorkoutDatabase extends Dexie {
       sets: await this.sets.toArray(),
       templates: await this.templates.toArray(),
       settings: await this.settings.toArray(),
+      workoutSessions: await this.workoutSessions.toArray(),
+      exerciseCompletions: await this.exerciseCompletions.toArray(),
       exportDate: new Date().toISOString()
     };
     return JSON.stringify(data, null, 2);
@@ -558,6 +641,8 @@ export class WorkoutDatabase extends Dexie {
     await this.sets.clear();
     await this.templates.clear();
     await this.settings.clear();
+    await this.workoutSessions.clear();
+    await this.exerciseCompletions.clear();
 
     // Import new data
     if (data.exercises) await this.exercises.bulkAdd(data.exercises);
@@ -565,6 +650,8 @@ export class WorkoutDatabase extends Dexie {
     if (data.sets) await this.sets.bulkAdd(data.sets);
     if (data.templates) await this.templates.bulkAdd(data.templates);
     if (data.settings) await this.settings.bulkAdd(data.settings);
+    if (data.workoutSessions) await this.workoutSessions.bulkAdd(data.workoutSessions);
+    if (data.exerciseCompletions) await this.exerciseCompletions.bulkAdd(data.exerciseCompletions);
   }
 
   // Database maintenance
