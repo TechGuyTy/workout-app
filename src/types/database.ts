@@ -13,6 +13,7 @@ export interface Exercise {
   muscleGroup: string;
   aliases?: string[];
   unitPreference?: 'lbs' | 'kg';
+  videoUrl?: string; // Add this field for exercise demo videos
   createdAt: Date;
   updatedAt: Date;
 }

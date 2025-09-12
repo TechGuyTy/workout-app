@@ -280,6 +280,19 @@ function ExerciseDetailModal({ exercise, performance, onClose }: ExerciseDetailM
             <div>
               <h3 className="medieval-subtitle">{exercise.name}</h3>
               <div className="text-sm text-gray-400">{exercise.muscleGroup}</div>
+              {exercise.videoUrl && (
+                <a
+                  href={exercise.videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center text-medieval-400 hover:text-medieval-300 text-sm mt-1 transition-colors"
+                >
+                  <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h1m4 0h1m6-1a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Watch Demo
+                </a>
+              )}
             </div>
             <button
               onClick={onClose}

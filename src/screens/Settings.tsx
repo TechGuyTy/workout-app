@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { db } from '../lib/database'
-import { Settings as AppSettings } from '../types/database'
+import { Settings as AppSettings, Exercise } from '../types/database'
 import { 
   Cog6ToothIcon,
   ArrowDownTrayIcon,
   ArrowUpTrayIcon,
   TrashIcon,
-  ShieldCheckIcon
+  ShieldCheckIcon,
+  PlayIcon,
+  PencilIcon
 } from '@heroicons/react/24/outline'
 
 export default function Settings() {
@@ -16,9 +18,12 @@ export default function Settings() {
   const [isImporting, setIsImporting] = useState(false)
   const [importData, setImportData] = useState('')
   const [showImportForm, setShowImportForm] = useState(false)
+  const [exercises, setExercises] = useState<Exercise[]>([])
+  const [showVideoManager, setShowVideoManager] = useState(false)
 
   useEffect(() => {
     loadSettings()
+    loadExercises()
   }, [])
 
   const loadSettings = async () => {
@@ -31,6 +36,15 @@ export default function Settings() {
     } catch (error) {
       console.error('Failed to load settings:', error)
       setIsLoading(false)
+    }
+  }
+
+  const loadExercises = async () => {
+    try {
+      const exerciseList = await db.exercises.toArray()
+      setExercises(exerciseList)
+    } catch (error) {
+      console.error('Failed to load exercises:', error)
     }
   }
 
@@ -239,6 +253,34 @@ export default function Settings() {
         </div>
       </div>
 
+      {/* Exercise Video Management */}
+      <div className="card">
+        <div className="card-header">
+          <h3 className="medieval-subtitle flex items-center">
+            <PlayIcon className="h-5 w-5 mr-2" />
+            Exercise Videos
+          </h3>
+          <p className="text-sm text-gray-400">Add demonstration video links for exercises</p>
+        </div>
+        <div className="card-body">
+          <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
+            <div>
+              <div className="font-medium text-white">Manage Exercise Videos</div>
+              <div className="text-sm text-gray-400">
+                Add or update video demonstration links for exercises
+              </div>
+            </div>
+            <button 
+              onClick={() => setShowVideoManager(true)}
+              className="btn-primary"
+            >
+              <PencilIcon className="h-4 w-4 mr-2" />
+              Manage Videos
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Data Management */}
       <div className="card">
         <div className="card-header">
@@ -399,6 +441,181 @@ export default function Settings() {
           </div>
         </div>
       )}
+
+      {/* Video Manager Modal */}
+      {showVideoManager && (
+        <VideoManagerModal
+          exercises={exercises}
+          onClose={() => setShowVideoManager(false)}
+          onUpdate={loadExercises}
+        />
+      )}
+    </div>
+  )
+}
+
+interface VideoManagerModalProps {
+  exercises: Exercise[]
+  onClose: () => void
+  onUpdate: () => void
+}
+
+function VideoManagerModal({ exercises, onClose, onUpdate }: VideoManagerModalProps) {
+  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null)
+  const [videoUrl, setVideoUrl] = useState('')
+  const [isUpdating, setIsUpdating] = useState(false)
+
+  const handleUpdateVideo = async () => {
+    if (!selectedExercise || !videoUrl.trim()) return
+
+    setIsUpdating(true)
+    try {
+      await db.updateExerciseVideoUrl(selectedExercise.id!, videoUrl.trim())
+      onUpdate()
+      setSelectedExercise(null)
+      setVideoUrl('')
+    } catch (error) {
+      console.error('Failed to update video URL:', error)
+      alert('Failed to update video URL. Please try again.')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  const handleRemoveVideo = async (exercise: Exercise) => {
+    if (!exercise.id) return
+
+    try {
+      await db.removeExerciseVideoUrl(exercise.id)
+      onUpdate()
+    } catch (error) {
+      console.error('Failed to remove video URL:', error)
+      alert('Failed to remove video URL. Please try again.')
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="card-header">
+          <div className="flex items-center justify-between">
+            <h3 className="medieval-subtitle">Manage Exercise Videos</h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white p-2"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+        <div className="card-body">
+          {/* Add Video URL Form */}
+          <div className="mb-6 p-4 bg-gray-700 rounded-lg">
+            <h4 className="font-medium text-white mb-4">Add/Update Video URL</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Select Exercise
+                </label>
+                <select
+                  value={selectedExercise?.id || ''}
+                  onChange={(e) => {
+                    const exercise = exercises.find(ex => ex.id === Number(e.target.value))
+                    setSelectedExercise(exercise || null)
+                    setVideoUrl(exercise?.videoUrl || '')
+                  }}
+                  className="input-field w-full"
+                >
+                  <option value="">Choose an exercise...</option>
+                  {exercises.map((exercise) => (
+                    <option key={exercise.id} value={exercise.id}>
+                      {exercise.name} ({exercise.muscleGroup})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Video URL
+                </label>
+                <input
+                  type="url"
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  className="input-field w-full"
+                  placeholder="https://youtube.com/watch?v=..."
+                  disabled={!selectedExercise}
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex space-x-3">
+              <button
+                onClick={handleUpdateVideo}
+                disabled={!selectedExercise || !videoUrl.trim() || isUpdating}
+                className="btn-primary"
+              >
+                {isUpdating ? 'Updating...' : 'Update Video'}
+              </button>
+              {selectedExercise?.videoUrl && (
+                <button
+                  onClick={() => handleRemoveVideo(selectedExercise)}
+                  className="btn-secondary"
+                >
+                  Remove Video
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Exercises List */}
+          <div>
+            <h4 className="font-medium text-white mb-4">All Exercises</h4>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {exercises.map((exercise) => (
+                <div key={exercise.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+                  <div>
+                    <div className="font-medium text-white">{exercise.name}</div>
+                    <div className="text-sm text-gray-400">{exercise.muscleGroup}</div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {exercise.videoUrl ? (
+                      <>
+                        <a
+                          href={exercise.videoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-medieval-400 hover:text-medieval-300 text-sm"
+                        >
+                          View Video
+                        </a>
+                        <button
+                          onClick={() => {
+                            setSelectedExercise(exercise)
+                            setVideoUrl(exercise.videoUrl || '')
+                          }}
+                          className="text-gray-400 hover:text-white text-sm"
+                        >
+                          Edit
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setSelectedExercise(exercise)
+                          setVideoUrl('')
+                        }}
+                        className="text-medieval-400 hover:text-medieval-300 text-sm"
+                      >
+                        Add Video
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

@@ -15,6 +15,7 @@ export interface Exercise {
   muscleGroup: string;
   aliases?: string[];
   unitPreference?: 'lbs' | 'kg';
+  videoUrl?: string; // Add this field for exercise demo videos
   createdAt: Date;
   updatedAt: Date;
 }
@@ -107,6 +108,11 @@ export class WorkoutDatabase extends Dexie {
     this.version(3).stores({
       workoutSessions: '++id, date, muscleGroup, status',
       exerciseCompletions: '++id, workoutSessionId, exerciseId, completedAt'
+    });
+
+    // Add video URL support for exercises
+    this.version(4).stores({
+      exercises: '++id, name, muscleGroup, createdAt, videoUrl'
     });
   }
 
@@ -338,12 +344,12 @@ export class WorkoutDatabase extends Dexie {
   async seedInitialData() {
     const exerciseCount = await this.exercises.count();
     if (exerciseCount === 0) {
-      await this.exercises.bulkAdd([
-        {
-        name: 'Cable Chest Fly',
+      await this.exercises.bulkAdd([    
+        {name: 'Cable Chest Fly',
         muscleGroup: 'Chest',
         aliases: ['Chest Cable Fly', 'Cable Flyes', 'Cable Flies'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=taI4XduLpTk',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -352,6 +358,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Chest',
         aliases: ['Incline Hex Press', 'Incline DB Hex Press'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=svDJnHTH6WE',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -360,6 +367,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Chest',
         aliases: ['Chest Dips', 'Parallel Bar Dips'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=2z8JmcrW-As',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -368,6 +376,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Chest',
         aliases: ['Tricep Pushdowns', 'Straight-Bar Pushdown', 'Cable Pushdown (Bar)'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=-xa-6cQaZKY',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -376,6 +385,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Chest',
         aliases: ['Overhead Rope Extension', 'Cable Overhead Extension'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=YbX7Wd8jQ-Q',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -385,6 +395,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Legs',
         aliases: ['Barbell Back Squat', 'Squat'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=zvGr7VmHw1A',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -393,6 +404,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Legs',
         aliases: ['Hamstring Curl', 'Seated Leg Curl', 'Lying Leg Curl'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=ELOCsoDSmrg',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -401,6 +413,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Legs',
         aliases: ['Dumbbell Lunge', 'Walking Lunge'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=D7KaRcUTQeE',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -409,6 +422,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Legs',
         aliases: ['Weighted Glute Bridge', 'Glute Bridge (Weighted)'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=xDmFkJxPzeM',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -417,6 +431,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Legs',
         aliases: ['Quad Extension', 'Knee Extension'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=ljO4jkwv8wQ',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -425,6 +440,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Legs',
         aliases: ['45° Leg Press', 'Machine Leg Press'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=IZxyjW7MPJQ',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -433,6 +449,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Legs',
         aliases: ['Leg Press Calf Raise', 'Calf Raises on Leg Press'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=gwLzBJYoWlI',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -441,6 +458,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Legs',
         aliases: ['Standing Weighted Calf Raise', 'Smith Machine Calf Raise'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=gwWD4AoHvpY',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -450,6 +468,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Shoulders',
         aliases: ['Military Press', 'OHP'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/shorts/0YYeELi896g',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -458,6 +477,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Shoulders',
         aliases: ['DB Shoulder Press', 'Seated Dumbbell Press'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/shorts/osEKVtXBLlU',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -466,6 +486,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Shoulders',
         aliases: ['Upright DB Row', 'Upright Row (DB)'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/shorts/PIC0MTxojZk',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -474,6 +495,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Shoulders',
         aliases: ['Standing DB Front Raise', 'Front Raise (DB)'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/shorts/h9xfpTrAvkE',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -482,6 +504,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Shoulders',
         aliases: ['Cable Face Pull', 'Rope Face Pull'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/shorts/qEyoBOpvqR4',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -490,6 +513,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Shoulders',
         aliases: ['Rear Delt Dumbbell Swing', 'Rear Delt Raise (Swing)'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/shorts/O2J8Qs7Wl3U',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -498,6 +522,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Shoulders',
         aliases: ['Barbell Shrug (Wide Grip)', 'BB Shrugs Wide'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/shorts/0Jmi-byV8ns',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -506,6 +531,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Shoulders',
         aliases: ['Side Lateral Raise', 'DB Lateral Raise'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/shorts/JMt_uxE8bBc',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -515,6 +541,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Back',
         aliases: ['Conventional Deadlift', 'Barbell Deadlift'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=op9kVnSso6Q',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -523,6 +550,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Back',
         aliases: ['Barbell Row', 'BOBB Row'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=FWJR5Ve8bnQ',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -531,6 +559,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Back',
         aliases: ['Wide-Grip Pulldown', 'Lat Pulldown (Wide)'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=CAwf7n6Luuc',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -539,6 +568,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Back',
         aliases: ['DB Row', 'Single-Arm Dumbbell Row'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=roCP6wCXPqo',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -547,6 +577,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Back',
         aliases: ['One-Arm Seated Row', 'Single-Arm Cable Row'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=GZbfZ033f74',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -556,6 +587,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Back',
         aliases: ['Alt DB Curl', 'Alternating Biceps Curl'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=8d_dheiU_e4',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -564,6 +596,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Back',
         aliases: ['Cable Hammer Curl (Rope)', 'Hammer Curl (Cable Rope)'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=TwD-YGVP4Bk',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -572,6 +605,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Back',
         aliases: ['Straight-Bar Cable Curl', 'Cable Bar Curl'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=NGVHPnsSt-g',
         createdAt: new Date(),
         updatedAt: new Date()
         },
@@ -580,6 +614,7 @@ export class WorkoutDatabase extends Dexie {
         muscleGroup: 'Back',
         aliases: ['Pronated Curl', 'EZ-Bar Reverse Curl'],
         unitPreference: 'lbs',
+        videoUrl: 'https://www.youtube.com/watch?v=nRgLOgjaBWI',
         createdAt: new Date(),
         updatedAt: new Date()
         }
@@ -654,6 +689,21 @@ export class WorkoutDatabase extends Dexie {
     if (data.exerciseCompletions) await this.exerciseCompletions.bulkAdd(data.exerciseCompletions);
   }
 
+  // Video URL management
+  async updateExerciseVideoUrl(exerciseId: number, videoUrl: string): Promise<void> {
+    await this.exercises.update(exerciseId, { 
+      videoUrl: videoUrl,
+      updatedAt: new Date()
+    });
+  }
+
+  async removeExerciseVideoUrl(exerciseId: number): Promise<void> {
+    await this.exercises.update(exerciseId, { 
+      videoUrl: undefined,
+      updatedAt: new Date()
+    });
+  }
+
   // Database maintenance
   async clearAllData(): Promise<void> {
     await this.workouts.clear();
@@ -661,6 +711,8 @@ export class WorkoutDatabase extends Dexie {
     await this.sets.clear();
     await this.templates.clear();
     await this.settings.clear();
+    await this.workoutSessions.clear();
+    await this.exerciseCompletions.clear();
   }
 }
 
