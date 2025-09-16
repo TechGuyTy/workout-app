@@ -9,10 +9,10 @@ import {
 } from '@heroicons/react/24/outline'
 
 const MUSCLE_GROUPS = [
-  { id: 'Chest', name: 'Tiddy Day', color: 'bg-red-600', icon: '🍈' },
-  { id: 'Back', name: 'Back Day', color: 'bg-blue-600', icon: '🦾' },
-  { id: 'Legs', name: 'Leg Day', color: 'bg-green-600', icon: '🦵' },
-  { id: 'Shoulders', name: 'Shoulder Day', color: 'bg-purple-600', icon: '💪' }
+  { id: 'Chest', name: 'Tiddies & Tris', color: 'bg-red-600', icon: '🍈' },
+  { id: 'Back', name: 'Back & Bis', color: 'bg-blue-600', icon: '🦾' },
+  { id: 'Legs', name: 'Leg Circuit', color: 'bg-green-600', icon: '🦵' },
+  { id: 'Shoulders', name: 'Shoulder & Traps', color: 'bg-purple-600', icon: '💪' }
 ]
 
 export default function Today() {
@@ -117,7 +117,7 @@ export default function Today() {
               >
                 <div className="text-4xl mb-2">{group.icon}</div>
                 <div className="text-lg font-semibold">{group.name}</div>
-                <div className="text-sm opacity-80">Click to start</div>
+                <div className="text-sm opacity-80">Let's get it!</div>
               </button>
             ))}
           </div>
