@@ -76,3 +76,16 @@ export interface ExerciseCompletion {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface MuscleGroup {
+  id?: number;
+  name: string; // Display name like "Tiddies & Tris"
+  identifier: string; // Internal identifier like "Chest"
+  color: string; // CSS color class like "bg-red-600"
+  icon: string; // Emoji icon like "🍈"
+  description?: string; // Optional description like "Let's get it!"
+  isActive: boolean; // Whether this muscle group is available for selection
+  sortOrder: number; // Display order
+  createdAt: Date;
+  updatedAt: Date;
+}

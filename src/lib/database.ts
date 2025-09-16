@@ -1,4 +1,5 @@
 import Dexie, { Table } from 'dexie';
+import { MuscleGroup } from '../types/database';
 
 export interface Workout {
   id?: number;
@@ -87,6 +88,7 @@ export class WorkoutDatabase extends Dexie {
   settings!: Table<Settings>;
   workoutSessions!: Table<WorkoutSession>;
   exerciseCompletions!: Table<ExerciseCompletion>;
+  muscleGroups!: Table<MuscleGroup>;
 
   constructor() {
     super('WorkoutTrackerDB');
@@ -113,6 +115,11 @@ export class WorkoutDatabase extends Dexie {
     // Add video URL support for exercises
     this.version(4).stores({
       exercises: '++id, name, muscleGroup, createdAt, videoUrl'
+    });
+
+    // Add muscle groups table
+    this.version(5).stores({
+      muscleGroups: '++id, identifier, name, isActive, sortOrder, createdAt'
     });
   }
 
@@ -159,6 +166,46 @@ export class WorkoutDatabase extends Dexie {
       .between(startDate, endDate)
       .reverse()
       .sortBy('date');
+  }
+
+  // Muscle group methods
+  async getMuscleGroups(): Promise<MuscleGroup[]> {
+    const allGroups = await this.muscleGroups.toArray();    
+    // Filter active groups in memory for now since dexie doesn't support boolean whereClause.
+    return allGroups
+      .filter(group => group.isActive)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+
+  async getAllMuscleGroups(): Promise<MuscleGroup[]> {
+    return await this.muscleGroups
+      .orderBy('sortOrder')
+      .toArray();
+  }
+
+  async getMuscleGroupByIdentifier(identifier: string): Promise<MuscleGroup | null> {
+    return await this.muscleGroups
+      .where('identifier')
+      .equals(identifier)
+      .first() || null;
+  }
+
+  async createMuscleGroup(muscleGroup: Omit<MuscleGroup, 'id'>): Promise<MuscleGroup> {
+    const id = await this.muscleGroups.add(muscleGroup);
+    const newMuscleGroup = await this.muscleGroups.get(id);
+    if (!newMuscleGroup) throw new Error('Failed to create muscle group');
+    return newMuscleGroup;
+  }
+
+  async updateMuscleGroup(id: number, updates: Partial<MuscleGroup>): Promise<void> {
+    await this.muscleGroups.update(id, {
+      ...updates,
+      updatedAt: new Date()
+    });
+  }
+
+  async deleteMuscleGroup(id: number): Promise<void> {
+    await this.muscleGroups.delete(id);
   }
 
   // Workout session methods
@@ -650,6 +697,57 @@ export class WorkoutDatabase extends Dexie {
         updatedAt: new Date()
       });
     }
+
+    // Seed muscle groups
+    const muscleGroupCount = await this.muscleGroups.count();
+    if (muscleGroupCount === 0) {
+      await this.muscleGroups.bulkAdd([
+        {
+          name: 'Tiddies & Tris',
+          identifier: 'Chest',
+          color: 'bg-red-600',
+          icon: '🍈',
+          description: "Let's get it!",
+          isActive: true,
+          sortOrder: 1,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          name: 'Back & Bis',
+          identifier: 'Back',
+          color: 'bg-blue-600',
+          icon: '🦾',
+          description: "Let's get it!",
+          isActive: true,
+          sortOrder: 2,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          name: 'Leg Circuit',
+          identifier: 'Legs',
+          color: 'bg-green-600',
+          icon: '🦵',
+          description: "Let's get it!",
+          isActive: true,
+          sortOrder: 3,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          name: 'Shoulder & Traps',
+          identifier: 'Shoulders',
+          color: 'bg-purple-600',
+          icon: '💪',
+          description: "Let's get it!",
+          isActive: true,
+          sortOrder: 4,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      ]);
+    }
   }
 
   // Export/Import functionality
@@ -662,6 +760,7 @@ export class WorkoutDatabase extends Dexie {
       settings: await this.settings.toArray(),
       workoutSessions: await this.workoutSessions.toArray(),
       exerciseCompletions: await this.exerciseCompletions.toArray(),
+      muscleGroups: await this.muscleGroups.toArray(),
       exportDate: new Date().toISOString()
     };
     return JSON.stringify(data, null, 2);
@@ -678,6 +777,7 @@ export class WorkoutDatabase extends Dexie {
     await this.settings.clear();
     await this.workoutSessions.clear();
     await this.exerciseCompletions.clear();
+    await this.muscleGroups.clear();
 
     // Import new data
     if (data.exercises) await this.exercises.bulkAdd(data.exercises);
@@ -687,6 +787,7 @@ export class WorkoutDatabase extends Dexie {
     if (data.settings) await this.settings.bulkAdd(data.settings);
     if (data.workoutSessions) await this.workoutSessions.bulkAdd(data.workoutSessions);
     if (data.exerciseCompletions) await this.exerciseCompletions.bulkAdd(data.exerciseCompletions);
+    if (data.muscleGroups) await this.muscleGroups.bulkAdd(data.muscleGroups);
   }
 
   // Video URL management
@@ -713,6 +814,7 @@ export class WorkoutDatabase extends Dexie {
     await this.settings.clear();
     await this.workoutSessions.clear();
     await this.exerciseCompletions.clear();
+    await this.muscleGroups.clear();
   }
 }
 

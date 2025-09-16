@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { db } from '../lib/database'
-import { Exercise, WorkoutSession } from '../types/database'
+import { Exercise, WorkoutSession, MuscleGroup } from '../types/database'
 import { 
   CheckIcon,
   XMarkIcon,
@@ -8,15 +8,9 @@ import {
   TrophyIcon
 } from '@heroicons/react/24/outline'
 
-const MUSCLE_GROUPS = [
-  { id: 'Chest', name: 'Tiddies & Tris', color: 'bg-red-600', icon: '🍈' },
-  { id: 'Back', name: 'Back & Bis', color: 'bg-blue-600', icon: '🦾' },
-  { id: 'Legs', name: 'Leg Circuit', color: 'bg-green-600', icon: '🦵' },
-  { id: 'Shoulders', name: 'Shoulder & Traps', color: 'bg-purple-600', icon: '💪' }
-]
-
 export default function Today() {
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string | null>(null)
+  const [muscleGroups, setMuscleGroups] = useState<MuscleGroup[]>([])
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null)
   const [completedExercises, setCompletedExercises] = useState<Set<number>>(new Set())
@@ -26,6 +20,7 @@ export default function Today() {
 
   useEffect(() => {
     loadTodayStatus()
+    loadMuscleGroups()
   }, [])
 
   const loadTodayStatus = async () => {
@@ -39,6 +34,15 @@ export default function Today() {
       }
     } catch (error) {
       console.error('Failed to load today status:', error)
+    }
+  }
+
+  const loadMuscleGroups = async () => {
+    try {
+      const groups = await db.getMuscleGroups()
+      setMuscleGroups(groups)
+    } catch (error) {
+      console.error('Failed to load muscle groups:', error)
     }
   }
 
@@ -61,13 +65,13 @@ export default function Today() {
     }
   }
 
-  const selectMuscleGroup = async (muscleGroup: string) => {
+  const selectMuscleGroup = async (identifier: string) => {
     try {
       setIsLoading(true)
-      const session = await db.getOrCreateTodayWorkoutSession(muscleGroup)
+      const session = await db.getOrCreateTodayWorkoutSession(identifier)
       setCurrentSession(session)
-      setSelectedMuscleGroup(muscleGroup)
-      await loadExercises(muscleGroup)
+      setSelectedMuscleGroup(identifier)
+      await loadExercises(identifier)
       await loadCompletedExercises()
     } catch (error) {
       console.error('Failed to select muscle group:', error)
@@ -107,19 +111,19 @@ export default function Today() {
         <div className="text-center py-8">
           <div className="text-xl text-gray-300 mb-6">Select today's workout</div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
-            {MUSCLE_GROUPS.map((group) => (
-              <button
-                key={group.id}
-                onClick={() => selectMuscleGroup(group.id)}
-                disabled={isLoading}
-                className={`${group.color} hover:opacity-90 transition-all duration-200 p-6 rounded-lg text-white text-center group`}
-              >
-                <div className="text-4xl mb-2">{group.icon}</div>
-                <div className="text-lg font-semibold">{group.name}</div>
-                <div className="text-sm opacity-80">Let's get it!</div>
-              </button>
-            ))}
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
+             {muscleGroups.map((group) => (
+               <button
+                 key={group.id}
+                 onClick={() => selectMuscleGroup(group.identifier)}
+                 disabled={isLoading}
+                 className={`${group.color} hover:opacity-90 transition-all duration-200 p-6 rounded-lg text-white text-center group`}
+               >
+                 <div className="text-4xl mb-2">{group.icon}</div>
+                 <div className="text-lg font-semibold">{group.name}</div>
+                 <div className="text-sm opacity-80">{group.description}</div>
+               </button>
+             ))}
           </div>
         </div>
       </div>
@@ -147,11 +151,11 @@ export default function Today() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="medieval-title">{MUSCLE_GROUPS.find(g => g.id === selectedMuscleGroup)?.name}</div>
-          <div className="text-gray-400">Select exercises to complete</div>
-        </div>
+       <div className="flex items-center justify-between">
+         <div>
+           <div className="medieval-title">{muscleGroups.find(g => g.identifier === selectedMuscleGroup)?.name}</div>
+           <div className="text-gray-400">Select exercises to complete</div>
+         </div>
         <button
           onClick={resetWorkout}
           className="btn-secondary"
