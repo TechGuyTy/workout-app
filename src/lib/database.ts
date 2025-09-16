@@ -680,23 +680,7 @@ export class WorkoutDatabase extends Dexie {
       });
     }
 
-    const templateCount = await this.templates.count();
-    if (templateCount === 0) {
-      const exercises = await this.exercises.toArray();
-      await this.templates.add({
-        name: 'Push Day',
-        orderedExerciseList: exercises
-          .filter(e => ['Chest', 'Shoulders'].includes(e.muscleGroup))
-          .map(e => ({
-            exerciseId: e.id!,
-            defaultSets: 3,
-            defaultReps: 8,
-            defaultWeight: 0
-          })),
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
-    }
+    // Templates are now muscle group based, no need for seeded templates
 
     // Seed muscle groups
     const muscleGroupCount = await this.muscleGroups.count();

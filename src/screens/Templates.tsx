@@ -1,96 +1,109 @@
 import { useState, useEffect } from 'react'
 import { db } from '../lib/database'
-import { Template, Exercise } from '../types/database'
+import { MuscleGroup, Exercise } from '../types/database'
 import { 
-  PlusIcon, 
-  PlayIcon, 
+  PlusIcon,
   TrashIcon,
   PencilIcon,
-  BookOpenIcon
+  BookOpenIcon,
+  ChevronDownIcon,
+  ChevronRightIcon
 } from '@heroicons/react/24/outline'
 
 export default function Templates() {
-  const [templates, setTemplates] = useState<Template[]>([])
+  const [muscleGroups, setMuscleGroups] = useState<MuscleGroup[]>([])
   const [exercises, setExercises] = useState<Exercise[]>([])
-  const [isCreating, setIsCreating] = useState(false)
-  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(true)
+  const [isCreating, setIsCreating] = useState(false)
+  const [editingExercise, setEditingExercise] = useState<Exercise | null>(null)
+  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string | null>(null)
 
   useEffect(() => {
-    loadTemplates()
-    loadExercises()
+    loadData()
   }, [])
 
-  const loadTemplates = async () => {
+  const loadData = async () => {
     try {
-      const templateList = await db.templates.toArray()
-      setTemplates(templateList)
+      await db.seedInitialData()
+      
+      const [muscleGroupList, exerciseList] = await Promise.all([
+        db.getMuscleGroups(),
+        db.exercises.toArray()
+      ])
+      
+      setMuscleGroups(muscleGroupList)
+      setExercises(exerciseList)
+      
+      // Expand all groups by default
+      const allIdentifiers = new Set(muscleGroupList.map(g => g.identifier))
+      setExpandedGroups(allIdentifiers)
     } catch (error) {
-      console.error('Failed to load templates:', error)
+      console.error('Failed to load data:', error)
     } finally {
       setIsLoading(false)
     }
   }
 
-  const loadExercises = async () => {
-    try {
-      const exerciseList = await db.exercises.toArray()
-      setExercises(exerciseList)
-    } catch (error) {
-      console.error('Failed to load exercises:', error)
-    }
+  const toggleGroup = (identifier: string) => {
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(identifier)) {
+        newSet.delete(identifier)
+      } else {
+        newSet.add(identifier)
+      }
+      return newSet
+    })
   }
 
-  const createTemplate = async (templateData: Omit<Template, 'id'>) => {
+  const getExercisesForGroup = (muscleGroupIdentifier: string) => {
+    return exercises.filter(exercise => exercise.muscleGroup === muscleGroupIdentifier)
+  }
+
+  const createExercise = async (exerciseData: Omit<Exercise, 'id'>) => {
     try {
-      const id = await db.templates.add(templateData)
-      const newTemplate = { ...templateData, id: id as number }
-      setTemplates(prev => [...prev, newTemplate])
+      const id = await db.exercises.add(exerciseData)
+      const newExercise = { ...exerciseData, id: id as number }
+      setExercises(prev => [...prev, newExercise])
       setIsCreating(false)
+      setSelectedMuscleGroup(null)
     } catch (error) {
-      console.error('Failed to create template:', error)
+      console.error('Failed to create exercise:', error)
+      alert('Failed to create exercise. Please try again.')
     }
   }
 
-  const updateTemplate = async (templateId: number, templateData: Partial<Template>) => {
+  const updateExercise = async (exerciseId: number, exerciseData: Partial<Exercise>) => {
     try {
-      await db.templates.update(templateId, {
-        ...templateData,
+      await db.exercises.update(exerciseId, {
+        ...exerciseData,
         updatedAt: new Date()
       })
       
-      setTemplates(prev => prev.map(t => 
-        t.id === templateId 
-          ? { ...t, ...templateData, updatedAt: new Date() }
-          : t
+      setExercises(prev => prev.map(e => 
+        e.id === exerciseId 
+          ? { ...e, ...exerciseData, updatedAt: new Date() }
+          : e
       ))
-      setEditingTemplate(null)
+      setEditingExercise(null)
     } catch (error) {
-      console.error('Failed to update template:', error)
+      console.error('Failed to update exercise:', error)
+      alert('Failed to update exercise. Please try again.')
     }
   }
 
-  const deleteTemplate = async (templateId: number) => {
-    if (!confirm('Are you sure you want to delete this template? This action cannot be undone.')) {
+  const deleteExercise = async (exerciseId: number, exerciseName: string) => {
+    if (!confirm(`Are you sure you want to delete "${exerciseName}"? This action cannot be undone.`)) {
       return
     }
 
     try {
-      await db.templates.delete(templateId)
-      setTemplates(prev => prev.filter(t => t.id !== templateId))
+      await db.exercises.delete(exerciseId)
+      setExercises(prev => prev.filter(e => e.id !== exerciseId))
     } catch (error) {
-      console.error('Failed to delete template:', error)
-    }
-  }
-
-  const useTemplate = async (_template: Template) => {
-    try {
-      // For now, redirect to Today screen where they can select muscle group
-      // The old template system is being replaced with muscle group templates
-      alert('Template system has been updated! Please use the new muscle group workout system on the Today screen.')
-      window.location.hash = '#/'
-    } catch (error) {
-      console.error('Failed to use template:', error)
+      console.error('Failed to delete exercise:', error)
+      alert('Failed to delete exercise. Please try again.')
     }
   }
 
@@ -107,115 +120,168 @@ export default function Templates() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="medieval-title">Workout Templates</div>
-        <button
-          onClick={() => setIsCreating(true)}
-          className="btn-primary"
-        >
-          <PlusIcon className="h-5 w-5 mr-2" />
-          Create Template
-        </button>
+        <div>
+          <div className="medieval-title">Workout Templates</div>
+          <div className="text-gray-400 mt-1">Manage exercises by muscle group</div>
+        </div>
       </div>
 
-      {/* Templates Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {templates.map((template) => (
-          <div key={template.id} className="card">
-            <div className="card-header">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="medieval-subtitle">{template.name}</h3>
-                  <div className="text-sm text-gray-400">
-                    {template.orderedExerciseList.length} exercises
-                  </div>
-                </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => setEditingTemplate(template)}
-                    className="text-blue-400 hover:text-blue-300 p-1"
-                  >
-                    <PencilIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => deleteTemplate(template.id!)}
-                    className="text-red-400 hover:text-red-300 p-1"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div className="card-body">
-              {/* Exercise List */}
-              <div className="space-y-2 mb-4">
-                {template.orderedExerciseList.map((item, index) => {
-                  const exercise = exercises.find(e => e.id === item.exerciseId)
-                  if (!exercise) return null
-
-                  return (
-                    <div key={index} className="flex items-center justify-between p-2 bg-gray-700 rounded">
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-white">{exercise.name}</div>
-                        <div className="text-xs text-gray-400">{exercise.muscleGroup}</div>
-                      </div>
-                      <div className="text-right text-sm">
-                        <div className="text-medieval-400">
-                          {item.defaultSets} × {item.defaultReps}
+      {/* Muscle Group Templates */}
+      <div className="space-y-4">
+        {muscleGroups.map((muscleGroup) => {
+          const groupExercises = getExercisesForGroup(muscleGroup.identifier)
+          const isExpanded = expandedGroups.has(muscleGroup.identifier)
+          
+          return (
+            <div key={muscleGroup.id} className="card">
+              {/* Muscle Group Header */}
+              <div 
+                className="card-header cursor-pointer hover:bg-gray-700 transition-colors"
+                onClick={() => toggleGroup(muscleGroup.identifier)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2">
+                      {isExpanded ? (
+                        <ChevronDownIcon className="h-5 w-5 text-gray-400" />
+                      ) : (
+                        <ChevronRightIcon className="h-5 w-5 text-gray-400" />
+                      )}
+                      <span className="text-2xl">{muscleGroup.icon}</span>
+                      <div>
+                        <h3 className="medieval-subtitle">{muscleGroup.name}</h3>
+                        <div className="text-sm text-gray-400">
+                          {groupExercises.length} exercises
                         </div>
-                        {item.defaultWeight && item.defaultWeight > 0 && (
-                          <div className="text-xs text-gray-400">
-                            {item.defaultWeight} lbs
-                          </div>
-                        )}
                       </div>
                     </div>
-                  )
-                })}
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedMuscleGroup(muscleGroup.identifier)
+                        setIsCreating(true)
+                      }}
+                      className="text-blue-400 hover:text-blue-300 p-2 rounded hover:bg-gray-600"
+                      title="Add Exercise"
+                    >
+                      <PlusIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              {/* Action Button */}
-              <button
-                onClick={() => useTemplate(template)}
-                className="btn-primary w-full"
-              >
-                <PlayIcon className="h-5 w-5 mr-2" />
-                Use Template
-              </button>
+              {/* Exercises List */}
+              {isExpanded && (
+                <div className="card-body">
+                  {groupExercises.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400">
+                      <p>No exercises in this muscle group yet</p>
+                      <button 
+                        className="btn-secondary mt-4"
+                        onClick={() => {
+                          setSelectedMuscleGroup(muscleGroup.identifier)
+                          setIsCreating(true)
+                        }}
+                      >
+                        <PlusIcon className="h-4 w-4 mr-2" />
+                        Add First Exercise
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {groupExercises.map((exercise) => (
+                        <div 
+                          key={exercise.id} 
+                          className="flex items-center justify-between p-3 bg-gray-700 rounded border border-gray-600 hover:border-gray-500 transition-colors"
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3">
+                              <div>
+                                <div className="text-sm font-medium text-white">{exercise.name}</div>
+                                {exercise.aliases && exercise.aliases.length > 0 && (
+                                  <div className="text-xs text-gray-400">
+                                    Also known as: {exercise.aliases.join(', ')}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2">
+                            {exercise.videoUrl && (
+                              <a
+                                href={exercise.videoUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-purple-400 hover:text-purple-300 p-1 rounded"
+                                title="Watch Demo"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h1m4 0h1m6-1a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </a>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setEditingExercise(exercise)
+                              }}
+                              className="text-blue-400 hover:text-blue-300 p-1 rounded"
+                              title="Edit Exercise"
+                            >
+                              <PencilIcon className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                deleteExercise(exercise.id!, exercise.name)
+                              }}
+                              className="text-red-400 hover:text-red-300 p-1 rounded"
+                              title="Remove Exercise"
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
-      {/* No Templates Message */}
-      {templates.length === 0 && (
+      {/* No Muscle Groups Message */}
+      {muscleGroups.length === 0 && (
         <div className="card">
           <div className="card-body text-center py-12">
             <BookOpenIcon className="h-16 w-16 mx-auto mb-4 text-gray-600" />
-            <div className="medieval-subtitle mb-2">No Templates Yet</div>
-            <p className="text-gray-400 mb-6">
-              Create workout templates to quickly start your training sessions
+            <div className="medieval-subtitle mb-2">No Muscle Groups Found</div>
+            <p className="text-gray-400">
+              No muscle groups are configured. Please check your database setup.
             </p>
-            <button
-              onClick={() => setIsCreating(true)}
-              className="btn-primary"
-            >
-              <PlusIcon className="h-5 w-5 mr-2" />
-              Create Your First Template
-            </button>
           </div>
         </div>
       )}
 
-      {/* Create/Edit Template Modal */}
-      {(isCreating || editingTemplate) && (
-        <TemplateForm
-          exercises={exercises}
-          template={editingTemplate}
-          onCreate={createTemplate}
-          onUpdate={updateTemplate}
+      {/* Create/Edit Exercise Modal */}
+      {(isCreating || editingExercise) && (
+        <ExerciseForm
+          exercise={editingExercise}
+          muscleGroup={selectedMuscleGroup || editingExercise?.muscleGroup || ''}
+          muscleGroups={muscleGroups}
+          onCreate={createExercise}
+          onUpdate={updateExercise}
           onCancel={() => {
             setIsCreating(false)
-            setEditingTemplate(null)
+            setEditingExercise(null)
+            setSelectedMuscleGroup(null)
           }}
         />
       )}
@@ -223,230 +289,143 @@ export default function Templates() {
   )
 }
 
-interface TemplateFormProps {
-  exercises: Exercise[]
-  template: Template | null
-  onCreate: (template: Omit<Template, 'id'>) => void
-  onUpdate: (templateId: number, template: Partial<Template>) => void
+interface ExerciseFormProps {
+  exercise: Exercise | null
+  muscleGroup: string
+  muscleGroups: MuscleGroup[]
+  onCreate: (exercise: Omit<Exercise, 'id'>) => void
+  onUpdate: (exerciseId: number, exercise: Partial<Exercise>) => void
   onCancel: () => void
 }
 
-function TemplateForm({ exercises, template, onCreate, onUpdate, onCancel }: TemplateFormProps) {
-  const [name, setName] = useState(template?.name || '')
-  const [selectedExercises, setSelectedExercises] = useState<Array<{
-    exerciseId: number
-    defaultSets: number
-    defaultReps: number
-    defaultWeight?: number
-  }>>(template?.orderedExerciseList || [])
+function ExerciseForm({ exercise, muscleGroup, muscleGroups, onCreate, onUpdate, onCancel }: ExerciseFormProps) {
+  const [name, setName] = useState(exercise?.name || '')
+  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState(exercise?.muscleGroup || muscleGroup)
+  const [aliases, setAliases] = useState(exercise?.aliases?.join(', ') || '')
+  const [videoUrl, setVideoUrl] = useState(exercise?.videoUrl || '')
+  const [unitPreference, setUnitPreference] = useState<'lbs' | 'kg'>(exercise?.unitPreference || 'lbs')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (name.trim() && selectedExercises.length > 0) {
-      const templateData = {
+    if (name.trim() && selectedMuscleGroup) {
+      const exerciseData = {
         name: name.trim(),
-        orderedExerciseList: selectedExercises,
-        createdAt: template?.createdAt || new Date(),
+        muscleGroup: selectedMuscleGroup,
+        aliases: aliases.split(',').map(a => a.trim()).filter(a => a.length > 0),
+        videoUrl: videoUrl.trim() || undefined,
+        unitPreference,
+        createdAt: exercise?.createdAt || new Date(),
         updatedAt: new Date()
       }
 
-      if (template) {
-        onUpdate(template.id!, templateData)
+      if (exercise) {
+        onUpdate(exercise.id!, exerciseData)
       } else {
-        onCreate(templateData)
+        onCreate(exerciseData)
       }
-    }
-  }
-
-  const addExercise = () => {
-    if (exercises.length > 0) {
-      setSelectedExercises(prev => [
-        ...prev,
-        {
-          exerciseId: exercises[0].id!,
-          defaultSets: 3,
-          defaultReps: 8,
-          defaultWeight: 0
-        }
-      ])
-    }
-  }
-
-  const removeExercise = (index: number) => {
-    setSelectedExercises(prev => prev.filter((_, i) => i !== index))
-  }
-
-  const updateExercise = (index: number, field: string, value: number) => {
-    setSelectedExercises(prev => prev.map((item, i) => 
-      i === index ? { ...item, [field]: value } : item
-    ))
-  }
-
-  const moveExercise = (index: number, direction: 'up' | 'down') => {
-    if (direction === 'up' && index > 0) {
-      setSelectedExercises(prev => {
-        const newList = [...prev]
-        const temp = newList[index]
-        newList[index] = newList[index - 1]
-        newList[index - 1] = temp
-        return newList
-      })
-    } else if (direction === 'down' && index < selectedExercises.length - 1) {
-      setSelectedExercises(prev => {
-        const newList = [...prev]
-        const temp = newList[index]
-        newList[index] = newList[index + 1]
-        newList[index + 1] = temp
-        return newList
-      })
     }
   }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-gray-800 rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <div className="card-header">
           <h3 className="medieval-subtitle">
-            {template ? 'Edit Template' : 'Create Template'}
+            {exercise ? 'Edit Exercise' : 'Add New Exercise'}
           </h3>
         </div>
         <div className="card-body">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Template Name */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Exercise Name */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Template Name
+                Exercise Name *
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="input-field w-full"
-                placeholder="e.g., Push Day, Leg Day"
+                placeholder="e.g., Bench Press, Squats"
                 required
               />
             </div>
 
-            {/* Exercise List */}
+            {/* Muscle Group */}
             <div>
-              <div className="flex items-center justify-between mb-4">
-                <label className="block text-sm font-medium text-gray-300">
-                  Exercises
-                </label>
-                <button
-                  type="button"
-                  onClick={addExercise}
-                  className="btn-secondary text-sm"
-                >
-                  <PlusIcon className="h-4 w-4 mr-1" />
-                  Add Exercise
-                </button>
-              </div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Muscle Group *
+              </label>
+              <select
+                value={selectedMuscleGroup}
+                onChange={(e) => setSelectedMuscleGroup(e.target.value)}
+                className="input-field w-full"
+                required
+              >
+                <option value="">Select a muscle group</option>
+                {muscleGroups.map((group) => (
+                  <option key={group.id} value={group.identifier}>
+                    {group.icon} {group.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              {selectedExercises.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  <p>No exercises added yet</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {selectedExercises.map((item, index) => {
-                    const exercise = exercises.find(e => e.id === item.exerciseId)
-                    if (!exercise) return null
+            {/* Aliases */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Aliases (optional)
+              </label>
+              <input
+                type="text"
+                value={aliases}
+                onChange={(e) => setAliases(e.target.value)}
+                className="input-field w-full"
+                placeholder="Alternative names, separated by commas"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Example: DB Bench, Dumbbell Press, Chest Press
+              </p>
+            </div>
 
-                    return (
-                      <div key={index} className="p-3 bg-gray-700 rounded-lg border border-gray-600">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex-1">
-                            <select
-                              value={item.exerciseId}
-                              onChange={(e) => updateExercise(index, 'exerciseId', Number(e.target.value))}
-                              className="input-field w-full"
-                            >
-                              {exercises.map((ex) => (
-                                <option key={ex.id} value={ex.id}>
-                                  {ex.name} ({ex.muscleGroup})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="flex items-center space-x-2 ml-3">
-                            <button
-                              type="button"
-                              onClick={() => moveExercise(index, 'up')}
-                              disabled={index === 0}
-                              className="text-gray-400 hover:text-white disabled:opacity-50 p-1"
-                            >
-                              ↑
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => moveExercise(index, 'down')}
-                              disabled={index === selectedExercises.length - 1}
-                              className="text-gray-400 hover:text-white disabled:opacity-50 p-1"
-                            >
-                              ↓
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeExercise(index)}
-                              className="text-red-400 hover:text-red-300 p-1"
-                            >
-                              <TrashIcon className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
+            {/* Video URL */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Demo Video URL (optional)
+              </label>
+              <input
+                type="url"
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                className="input-field w-full"
+                placeholder="https://youtube.com/..."
+              />
+            </div>
 
-                        <div className="grid grid-cols-3 gap-3">
-                          <div>
-                            <label className="block text-xs text-gray-400 mb-1">Sets</label>
-                            <input
-                              type="number"
-                              value={item.defaultSets}
-                              onChange={(e) => updateExercise(index, 'defaultSets', Number(e.target.value))}
-                              className="input-field w-full"
-                              min="1"
-                              max="10"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-gray-400 mb-1">Reps</label>
-                            <input
-                              type="number"
-                              value={item.defaultReps}
-                              onChange={(e) => updateExercise(index, 'defaultReps', Number(e.target.value))}
-                              className="input-field w-full"
-                              min="1"
-                              max="50"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-gray-400 mb-1">Weight (lbs)</label>
-                            <input
-                              type="number"
-                              value={item.defaultWeight}
-                              onChange={(e) => updateExercise(index, 'defaultWeight', Number(e.target.value))}
-                              className="input-field w-full"
-                              min="0"
-                              step="0.5"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+            {/* Unit Preference */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Unit Preference
+              </label>
+              <select
+                value={unitPreference}
+                onChange={(e) => setUnitPreference(e.target.value as 'lbs' | 'kg')}
+                className="input-field w-full"
+              >
+                <option value="lbs">Pounds (lbs)</option>
+                <option value="kg">Kilograms (kg)</option>
+              </select>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex space-x-3">
+            <div className="flex space-x-3 pt-4">
               <button
                 type="submit"
                 className="btn-primary flex-1"
-                disabled={!name.trim() || selectedExercises.length === 0}
+                disabled={!name.trim() || !selectedMuscleGroup}
               >
-                {template ? 'Update Template' : 'Create Template'}
+                {exercise ? 'Update Exercise' : 'Add Exercise'}
               </button>
               <button
                 type="button"
