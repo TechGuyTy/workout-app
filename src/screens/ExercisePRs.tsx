@@ -63,9 +63,9 @@ export default function ExercisePRs() {
 
           // Create trend data for chart
           const trend = sets
-            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
             .map(set => ({
-              date: formatDate(set.timestamp),
+              date: formatDate(set.createdAt),
               weight: set.weight,
               reps: set.reps,
               oneRM: calculate1RM(set.weight, set.reps)
@@ -380,7 +380,7 @@ function ExerciseDetailModal({ exercise, performance, onClose }: ExerciseDetailM
                 <div key={set.id} className="set-row">
                   <div className="flex-1">
                     <div className="text-sm text-gray-400">
-                      {formatDate(set.timestamp)}
+                      {formatDate(set.createdAt)}
                     </div>
                   </div>
                   <div className="flex items-center space-x-4">

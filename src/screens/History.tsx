@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { db } from '../lib/database'
-import { Set, Exercise } from '../types/database'
+import { ExerciseCompletion, Exercise } from '../types/database'
 import { formatDate, getDateRange, calculate1RM, formatDuration } from '../lib/utils'
 import { 
   CalendarIcon, 
@@ -8,21 +8,20 @@ import {
   TrashIcon
 } from '@heroicons/react/24/outline'
 
-type CombinedWorkout = {
-  type: 'workout' | 'session'
+type WorkoutHistory = {
   id: number
   date: string
+  muscleGroup: string
+  status: 'in-progress' | 'completed'
   notes?: string
   duration?: number
-  muscleGroup?: string
-  status?: string
 }
 
 export default function History() {
-  const [combinedWorkouts, setCombinedWorkouts] = useState<CombinedWorkout[]>([])
+  const [workoutHistory, setWorkoutHistory] = useState<WorkoutHistory[]>([])
   const [exercises, setExercises] = useState<Exercise[]>([])
-  const [selectedWorkout, setSelectedWorkout] = useState<CombinedWorkout | null>(null)
-  const [workoutSets, setWorkoutSets] = useState<Set[]>([])
+  const [selectedWorkout, setSelectedWorkout] = useState<WorkoutHistory | null>(null)
+  const [exerciseCompletions, setExerciseCompletions] = useState<ExerciseCompletion[]>([])
   const [dateRange, setDateRange] = useState(30) // days
   const [isLoading, setIsLoading] = useState(true)
 
@@ -36,35 +35,22 @@ export default function History() {
       setIsLoading(true)
       const { start, end } = getDateRange(dateRange)
       
-      // Load both old workouts and new workout sessions
-      const [workouts, workoutSessions] = await Promise.all([
-        db.getWorkoutsByDateRange(start, end),
-        db.getCompletedWorkoutSessions(start, end)
-      ])
+      // Load only workout sessions (new system)
+      const workoutSessions = await db.getCompletedWorkoutSessions(start, end)
       
-      // Combine them into a unified list
-      const combined: CombinedWorkout[] = [
-        ...workouts.map(w => ({
-          type: 'workout' as const,
-          id: w.id!,
-          date: w.date,
-          notes: w.notes,
-          duration: w.duration
-        })),
-        ...workoutSessions.map(s => ({
-          type: 'session' as const,
-          id: s.id!,
-          date: s.date,
-          notes: `${s.muscleGroup} Day`,
-          muscleGroup: s.muscleGroup,
-          status: s.status
-        }))
-      ]
+      // Convert to workout history format
+      const history: WorkoutHistory[] = workoutSessions.map(session => ({
+        id: session.id!,
+        date: session.date,
+        muscleGroup: session.muscleGroup,
+        status: session.status,
+        notes: `${session.muscleGroup} Day`
+      }))
       
       // Sort by date (newest first)
-      combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       
-      setCombinedWorkouts(combined)
+      setWorkoutHistory(history)
     } catch (error) {
       console.error('Failed to load workouts:', error)
     } finally {
@@ -81,40 +67,15 @@ export default function History() {
     }
   }
 
-  const loadWorkoutDetails = async (workout: CombinedWorkout) => {
+  const loadWorkoutDetails = async (workout: WorkoutHistory) => {
     try {
-      let sets: Set[] = []
+      // Load workout session with exercise completions
+      const sessionData = await db.getWorkoutSessionWithExercises(workout.id)
       
-      if (workout.type === 'workout') {
-        // Load sets from old workout system
-        sets = await db.sets
-          .where('workoutId')
-          .equals(workout.id)
-          .toArray()
-      } else {
-        // Load sets from workout session system
-        const sessionData = await db.getWorkoutSessionWithExercises(workout.id)
-        if (sessionData) {
-          // Get all sets for exercises completed in this session
-          const exerciseIds = sessionData.completions.map(c => c.exerciseId)
-          const sessionDate = sessionData.session.date
-          
-          for (const exerciseId of exerciseIds) {
-            const exerciseSets = await db.sets
-              .where('exerciseId')
-              .equals(exerciseId)
-              .filter(set => {
-                const setDate = new Date(set.timestamp).toISOString().split('T')[0]
-                return setDate === sessionDate
-              })
-              .toArray()
-            sets.push(...exerciseSets)
-          }
-        }
+      if (sessionData) {
+        setExerciseCompletions(sessionData.completions)
+        setSelectedWorkout(workout)
       }
-      
-      setWorkoutSets(sets)
-      setSelectedWorkout(workout)
     } catch (error) {
       console.error('Failed to load workout details:', error)
     }
@@ -126,10 +87,10 @@ export default function History() {
     }
 
     try {
-      // Delete all sets first
-      await db.sets.where('workoutId').equals(workoutId).delete()
-      // Delete the workout
-      await db.workouts.delete(workoutId)
+      // Delete exercise completions first
+      await db.exerciseCompletions.where('workoutSessionId').equals(workoutId).delete()
+      // Delete the workout session
+      await db.workoutSessions.delete(workoutId)
       
       // Reload workouts
       loadWorkouts()
@@ -137,34 +98,23 @@ export default function History() {
       // Clear selected workout if it was deleted
       if (selectedWorkout?.id === workoutId) {
         setSelectedWorkout(null)
-        setWorkoutSets([])
+        setExerciseCompletions([])
       }
     } catch (error) {
       console.error('Failed to delete workout:', error)
     }
   }
 
-  // Removed unused functions
-
-  const groupedSets = workoutSets.reduce((acc, set) => {
-    const exerciseId = set.exerciseId
-    if (!acc[exerciseId]) {
-      acc[exerciseId] = []
-    }
-    acc[exerciseId].push(set)
-    return acc
-  }, {} as Record<number, Set[]>)
-
-  const calculateTotalVolume = (sets: Set[]) => {
-    return sets.reduce((total, set) => total + (set.weight * set.reps), 0)
+  const calculateTotalVolume = (completion: ExerciseCompletion) => {
+    return completion.sets.reduce((total, set) => total + (set.weight * set.reps), 0)
   }
 
-  const calculateMaxWeight = (sets: Set[]) => {
-    return Math.max(...sets.map(set => set.weight))
+  const calculateMaxWeight = (completion: ExerciseCompletion) => {
+    return Math.max(...completion.sets.map(set => set.weight))
   }
 
-  const calculateMaxReps = (sets: Set[]) => {
-    return Math.max(...sets.map(set => set.reps))
+  const calculateMaxReps = (completion: ExerciseCompletion) => {
+    return Math.max(...completion.sets.map(set => set.reps))
   }
 
   if (isLoading) {
@@ -203,17 +153,17 @@ export default function History() {
         <div className="lg:col-span-1">
           <div className="card">
             <div className="card-header">
-              <h3 className="medieval-subtitle">Workouts ({combinedWorkouts.length})</h3>
+              <h3 className="medieval-subtitle">Workouts ({workoutHistory.length})</h3>
             </div>
             <div className="card-body">
-              {combinedWorkouts.length === 0 ? (
+              {workoutHistory.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
                   <CalendarIcon className="h-12 w-12 mx-auto mb-4 text-gray-600" />
                   <p>No workouts found in this time period</p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {combinedWorkouts.map((workout) => (
+                  {workoutHistory.map((workout) => (
                     <div
                       key={workout.id}
                       className={`p-3 rounded-lg border cursor-pointer transition-colors ${
@@ -231,9 +181,6 @@ export default function History() {
                           {workout.notes && (
                             <div className="text-sm text-gray-400 truncate">
                               {workout.notes}
-                              {workout.type === 'session' && (
-                                <span className="ml-2 text-xs text-medieval-400">(New)</span>
-                              )}
                             </div>
                           )}
                         </div>
@@ -285,7 +232,7 @@ export default function History() {
                         </div>
                       )}
                       <div className="text-sm text-gray-400">
-                        {workoutSets.length} sets
+                        {exerciseCompletions.reduce((total, completion) => total + completion.sets.length, 0)} sets
                       </div>
                     </div>
                   </div>
@@ -293,16 +240,16 @@ export default function History() {
               </div>
 
               {/* Exercise Summary */}
-              {Object.entries(groupedSets).map(([exerciseId, sets]) => {
-                const exercise = exercises.find(e => e.id === Number(exerciseId))
+              {exerciseCompletions.map((completion) => {
+                const exercise = exercises.find(e => e.id === completion.exerciseId)
                 if (!exercise) return null
 
-                const totalVolume = calculateTotalVolume(sets)
-                const maxWeight = calculateMaxWeight(sets)
-                const maxReps = calculateMaxReps(sets)
+                const totalVolume = calculateTotalVolume(completion)
+                const maxWeight = calculateMaxWeight(completion)
+                const maxReps = calculateMaxReps(completion)
 
                 return (
-                  <div key={exerciseId} className="card">
+                  <div key={completion.id} className="card">
                     <div className="card-header">
                       <div className="flex items-center justify-between">
                         <div>
@@ -310,7 +257,7 @@ export default function History() {
                           <div className="text-sm text-gray-400">{exercise.muscleGroup}</div>
                         </div>
                         <div className="text-right text-sm">
-                          <div className="text-gray-400">{sets.length} sets</div>
+                          <div className="text-gray-400">{completion.sets.length} sets</div>
                           <div className="text-medieval-400 font-medium">
                             {totalVolume.toLocaleString()} lbs total
                           </div>
@@ -334,7 +281,7 @@ export default function History() {
                         </div>
                         <div className="text-center">
                           <div className="text-2xl font-bold text-medieval-400">
-                            {Math.round(totalVolume / sets.length)}
+                            {Math.round(totalVolume / completion.sets.length)}
                           </div>
                           <div className="text-xs text-gray-400">Avg Volume</div>
                         </div>
@@ -342,11 +289,11 @@ export default function History() {
 
                       {/* Sets */}
                       <div className="space-y-2">
-                        {sets.map((set) => (
-                          <div key={set.id} className="set-row">
+                        {completion.sets.map((set, index) => (
+                          <div key={index} className="set-row">
                             <div className="flex-1">
                               <div className="text-sm text-gray-400">
-                                {new Date(set.timestamp).toLocaleTimeString()}
+                                Set {index + 1}
                               </div>
                             </div>
                             <div className="flex items-center space-x-4">

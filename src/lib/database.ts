@@ -1,14 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { MuscleGroup } from '../types/database';
 
-export interface Workout {
-  id?: number;
-  date: string; // ISO date string
-  notes?: string;
-  duration?: number; // in minutes
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 export interface Exercise {
   id?: number;
@@ -28,7 +20,6 @@ export interface Set {
   reps: number;
   weight: number;
   rpe?: number; // Rate of Perceived Exertion 1-10
-  timestamp: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -81,7 +72,6 @@ export interface ExerciseCompletion {
 }
 
 export class WorkoutDatabase extends Dexie {
-  workouts!: Table<Workout>;
   exercises!: Table<Exercise>;
   sets!: Table<Set>;
   templates!: Table<Template>;
@@ -94,7 +84,6 @@ export class WorkoutDatabase extends Dexie {
     super('WorkoutTrackerDB');
     
     this.version(1).stores({
-      workouts: '++id, date, createdAt',
       exercises: '++id, name, muscleGroup, createdAt',
       sets: '++id, workoutId, exerciseId, timestamp, [exerciseId+timestamp]',
       templates: '++id, name, createdAt',
@@ -121,27 +110,26 @@ export class WorkoutDatabase extends Dexie {
     this.version(5).stores({
       muscleGroups: '++id, identifier, name, isActive, sortOrder, createdAt'
     });
+
+    // Remove timestamp field from sets table (cleanup)
+    this.version(6).stores({
+      sets: '++id, workoutId, exerciseId, [workoutId+exerciseId]'
+    });
+
+    // Remove old workouts table (system consolidation)
+    this.version(7).stores({
+      workouts: null // Remove the workouts table
+    });
   }
 
   // Helper methods for common operations
-  async getWorkoutWithSets(workoutId: number) {
-    const workout = await this.workouts.get(workoutId);
-    if (!workout) return null;
-
-    const sets = await this.sets
-      .where('workoutId')
-      .equals(workoutId)
-      .toArray();
-
-    return { workout, sets };
-  }
 
   async getExerciseHistory(exerciseId: number, limit = 50) {
     return await this.sets
       .where('exerciseId')
       .equals(exerciseId)
       .reverse()
-      .sortBy('timestamp')
+      .sortBy('createdAt')
       .then(sets => sets.slice(0, limit));
   }
 
@@ -150,7 +138,7 @@ export class WorkoutDatabase extends Dexie {
       .where('exerciseId')
       .equals(exerciseId)
       .reverse()
-      .sortBy('timestamp')
+      .sortBy('createdAt')
       .then(sets => sets[0]);
 
     return lastSet ? {
@@ -160,13 +148,6 @@ export class WorkoutDatabase extends Dexie {
     } : null;
   }
 
-  async getWorkoutsByDateRange(startDate: string, endDate: string) {
-    return await this.workouts
-      .where('date')
-      .between(startDate, endDate)
-      .reverse()
-      .sortBy('date');
-  }
 
   // Muscle group methods
   async getMuscleGroups(): Promise<MuscleGroup[]> {
@@ -288,7 +269,6 @@ export class WorkoutDatabase extends Dexie {
       reps: set.reps,
       weight: set.weight,
       rpe: set.rpe,
-      timestamp: new Date(),
       createdAt: new Date(),
       updatedAt: new Date()
     }));
@@ -317,7 +297,7 @@ export class WorkoutDatabase extends Dexie {
 
   async getCompletedWorkoutSessions(startDate: string, endDate: string): Promise<WorkoutSession[]> {
     const sessions = await this.getWorkoutSessionsByDateRange(startDate, endDate);
-    return sessions.filter(session => session.status === 'completed');
+    return sessions.filter(session => session.status === 'completed'); // TODO: Include any in-progress session from past days too.
   }
 
   async getWorkoutSessionWithExercises(sessionId: number): Promise<{
@@ -336,7 +316,7 @@ export class WorkoutDatabase extends Dexie {
   }
 
   // Complete workout functionality
-  async completeWorkoutSession(sessionId: number, notes?: string, duration?: number): Promise<Workout> {
+  async completeWorkoutSession(sessionId: number): Promise<void> {
     const session = await this.workoutSessions.get(sessionId);
     if (!session) throw new Error('Workout session not found');
 
@@ -345,46 +325,6 @@ export class WorkoutDatabase extends Dexie {
       status: 'completed',
       updatedAt: new Date()
     });
-
-    // Create a Workout record for backward compatibility
-    const workoutId = await this.workouts.add({
-      date: session.date,
-      notes: notes || `${session.muscleGroup} Day`,
-      duration,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    });
-
-    // Update all sets with workoutId 0 to use the new workout ID
-    const setsToUpdate = await this.sets
-      .where('workoutId')
-      .equals(0)
-      .toArray();
-
-    // Filter sets that belong to this session's exercises
-    const completions = await this.exerciseCompletions
-      .where('workoutSessionId')
-      .equals(sessionId)
-      .toArray();
-    
-    const sessionExerciseIds = new Set(completions.map(c => c.exerciseId));
-    const sessionSets = setsToUpdate.filter(set => 
-      sessionExerciseIds.has(set.exerciseId) &&
-      new Date(set.timestamp).toISOString().split('T')[0] === session.date
-    );
-
-    // Update the sets to reference the new workout
-    for (const set of sessionSets) {
-      await this.sets.update(set.id!, {
-        workoutId: workoutId as number,
-        updatedAt: new Date()
-      });
-    }
-
-    const newWorkout = await this.workouts.get(workoutId);
-    if (!newWorkout) throw new Error('Failed to create workout record');
-    
-    return newWorkout;
   }
 
   // Migration helper
@@ -737,7 +677,6 @@ export class WorkoutDatabase extends Dexie {
   // Export/Import functionality
   async exportData(): Promise<string> {
     const data = {
-      workouts: await this.workouts.toArray(),
       exercises: await this.exercises.toArray(),
       sets: await this.sets.toArray(),
       templates: await this.templates.toArray(),
@@ -754,7 +693,6 @@ export class WorkoutDatabase extends Dexie {
     const data = JSON.parse(jsonData);
     
     // Clear existing data
-    await this.workouts.clear();
     await this.exercises.clear();
     await this.sets.clear();
     await this.templates.clear();
@@ -765,7 +703,6 @@ export class WorkoutDatabase extends Dexie {
 
     // Import new data
     if (data.exercises) await this.exercises.bulkAdd(data.exercises);
-    if (data.workouts) await this.workouts.bulkAdd(data.workouts);
     if (data.sets) await this.sets.bulkAdd(data.sets);
     if (data.templates) await this.templates.bulkAdd(data.templates);
     if (data.settings) await this.settings.bulkAdd(data.settings);
@@ -791,7 +728,6 @@ export class WorkoutDatabase extends Dexie {
 
   // Database maintenance
   async clearAllData(): Promise<void> {
-    await this.workouts.clear();
     await this.exercises.clear();
     await this.sets.clear();
     await this.templates.clear();

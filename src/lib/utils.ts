@@ -168,15 +168,15 @@ export function formatDuration(minutes: number): string {
 }
 
 // Calculate workout duration from sets
-export function calculateWorkoutDuration(sets: Array<{ timestamp: Date }>): number {
+export function calculateWorkoutDuration(sets: Array<{ createdAt: Date }>): number {
   if (sets.length < 2) return 0;
   
   const sortedSets = [...sets].sort((a, b) => 
-    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   );
   
-  const startTime = new Date(sortedSets[0].timestamp).getTime();
-  const endTime = new Date(sortedSets[sortedSets.length - 1].timestamp).getTime();
+  const startTime = new Date(sortedSets[0].createdAt).getTime();
+  const endTime = new Date(sortedSets[sortedSets.length - 1].createdAt).getTime();
   
   return Math.round((endTime - startTime) / (1000 * 60)); // Convert to minutes
 }

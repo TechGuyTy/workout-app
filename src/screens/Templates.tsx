@@ -133,7 +133,7 @@ export default function Templates() {
           const isExpanded = expandedGroups.has(muscleGroup.identifier)
           
           return (
-            <div key={muscleGroup.id} className="card">
+            <div key={muscleGroup.identifier + muscleGroup.id} className="card">
               {/* Muscle Group Header */}
               <div 
                 className="card-header cursor-pointer hover:bg-gray-700 transition-colors"

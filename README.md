@@ -145,7 +145,7 @@ The included GitHub Action automatically:
 ### Indexes
 - Date-based workout queries
 - Exercise performance tracking
-- Timestamp-based set ordering
+- CreatedAt-based set ordering
 
 ## 🎨 Customization
 

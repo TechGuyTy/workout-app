@@ -25,7 +25,6 @@ export interface Set {
   reps: number;
   weight: number;
   rpe?: number; // Rate of Perceived Exertion 1-10
-  timestamp: Date;
   createdAt: Date;
   updatedAt: Date;
 }
