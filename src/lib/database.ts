@@ -300,6 +300,30 @@ export class WorkoutDatabase extends Dexie {
     return sessions.filter(session => session.status === 'completed'); // TODO: Include any in-progress session from past days too.
   }
 
+  // Include sessions marked completed OR past in-progress sessions that have any completions
+  async getCompletedOrWithCompletions(startDate: string, endDate: string): Promise<WorkoutSession[]> {
+    const sessions = await this.getWorkoutSessionsByDateRange(startDate, endDate);
+    const today = new Date().toISOString().split('T')[0];
+
+    const results: WorkoutSession[] = [];
+    for (const s of sessions) {
+      if (s.status === 'completed') {
+        results.push(s);
+        continue;
+      }
+      if (s.date < today) {
+        const count = await this.exerciseCompletions
+          .where('workoutSessionId')
+          .equals(s.id!)
+          .count();
+        if (count > 0) {
+          results.push(s);
+        }
+      }
+    }
+    return results;
+  }
+
   async getWorkoutSessionWithExercises(sessionId: number): Promise<{
     session: WorkoutSession;
     completions: ExerciseCompletion[];

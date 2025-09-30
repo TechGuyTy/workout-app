@@ -35,8 +35,8 @@ export default function History() {
       setIsLoading(true)
       const { start, end } = getDateRange(dateRange)
       
-      // Load only workout sessions (new system)
-      const workoutSessions = await db.getCompletedWorkoutSessions(start, end)
+      // Load sessions: completed OR past in-progress sessions that have completions
+      const workoutSessions = await db.getCompletedOrWithCompletions(start, end)
       
       // Convert to workout history format
       const history: WorkoutHistory[] = workoutSessions.map(session => ({
@@ -71,7 +71,7 @@ export default function History() {
     try {
       // Load workout session with exercise completions
       const sessionData = await db.getWorkoutSessionWithExercises(workout.id)
-      
+
       if (sessionData) {
         setExerciseCompletions(sessionData.completions)
         setSelectedWorkout(workout)
