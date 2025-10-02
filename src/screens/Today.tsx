@@ -345,11 +345,13 @@ function ExerciseInputForm({
                   type="number"
                   value={set.weight || ''}
                   onChange={(e) => updateSet(index, 'weight', Number(e.target.value) || 0)}
+                  onFocus={(e) => (e.target as HTMLInputElement).select()}
+                  onClick={(e) => (e.target as HTMLInputElement).select()}
                   className="input-field w-full"
                   placeholder="Enter weight"
                   min="0"
                   step="0.5"
-                  inputMode="numeric"
+                  inputMode="decimal"
                 />
               </div>
               <div className="flex-1">
@@ -358,6 +360,8 @@ function ExerciseInputForm({
                   type="number"
                   value={set.reps || ''}
                   onChange={(e) => updateSet(index, 'reps', Number(e.target.value) || 1)}
+                  onFocus={(e) => (e.target as HTMLInputElement).select()}
+                  onClick={(e) => (e.target as HTMLInputElement).select()}
                   className="input-field w-full"
                   placeholder="Enter reps"
                   min="1"
