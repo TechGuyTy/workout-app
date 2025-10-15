@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { db } from './lib/database'
 import { Settings } from './types/database'
+import { getSeasonalIcon } from './lib/seasonalIcons'
 import Layout from './components/Layout'
 import Today from './screens/Today'
 import History from './screens/History'
@@ -33,7 +34,7 @@ function App() {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="medieval-title mb-4">Workout Tracker</div>
+          <div className="medieval-title mb-4">{getSeasonalIcon()} Workout Tracker</div>
           <div className="text-gray-400">Loading your medieval training grounds...</div>
         </div>
       </div>
