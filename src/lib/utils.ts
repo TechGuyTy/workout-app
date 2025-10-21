@@ -37,7 +37,7 @@ export function convertWeight(weight: number, fromUnit: 'lbs' | 'kg', toUnit: 'l
 
 // Date utilities
 export function formatDate(date: string | Date): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = typeof date === 'string' ? new Date(date + 'T00:00:00') : date;
   return d.toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
