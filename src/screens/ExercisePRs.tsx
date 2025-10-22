@@ -53,27 +53,43 @@ export default function ExercisePRs() {
       const performances: ExercisePerformance[] = []
 
       for (const exercise of exercises) {
-        const sets = await db.getExerciseHistory(exercise.id!, 100)
+        const completions = await db.exerciseCompletions
+          .where('exerciseId')
+          .equals(exercise.id!)
+          .reverse()
+          .sortBy('createdAt')
+          .then(completions => completions.slice(0, 20))
         
-        if (sets.length > 0) {
-          const maxWeight = Math.max(...sets.map(s => s.weight))
-          const maxReps = Math.max(...sets.map(s => s.reps))
-          const max1RM = Math.max(...sets.map(s => calculate1RM(s.weight, s.reps)))
-          const totalVolume = sets.reduce((sum, s) => sum + (s.weight * s.reps), 0)
+        if (completions.length > 0) {
+          // Flatten all sets from all completions
+          const allSets = completions.flatMap(c => c.sets.map(set => ({ 
+            ...set, 
+            createdAt: c.createdAt,
+            workoutId: 0,
+            exerciseId: exercise.id!,
+            updatedAt: c.updatedAt
+          })))
+          const maxWeight = Math.max(...allSets.map(s => s.weight))
+          const maxReps = Math.max(...allSets.map(s => s.reps))
+          const max1RM = Math.max(...allSets.map(s => calculate1RM(s.weight, s.reps)))
+          const totalVolume = allSets.reduce((sum, s) => sum + (s.weight * s.reps), 0)
 
-          // Create trend data for chart
-          const trend = sets
+          // Create trend data for chart - use completion order, then sets within each completion
+          const trend = completions
             .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-            .map(set => ({
-              date: formatDate(set.createdAt),
-              weight: set.weight,
-              reps: set.reps,
-              maxWeight: set.weight
-            }))
+            .flatMap(completion => 
+              completion.sets.map((set, index) => ({
+                date: formatDate(new Date(completion.createdAt)),
+                weight: set.weight,
+                reps: set.reps,
+                maxWeight: set.weight,
+                setIndex: index
+              }))
+            )
 
           performances.push({
             exercise,
-            sets,
+            sets: allSets,
             maxWeight,
             maxReps,
             max1RM,
