@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { db } from '../lib/database'
-import { Exercise, Set } from '../types/database'
+import { Exercise, Set, MuscleGroup } from '../types/database'
 import { calculate1RM, formatDate, getMuscleGroupColor } from '../lib/utils'
 import { 
   TrophyIcon
@@ -24,19 +24,22 @@ interface ExercisePerformance {
 
 export default function ExercisePRs() {
   const [exercises, setExercises] = useState<Exercise[]>([])
+  const [muscleGroups, setMuscleGroups] = useState<MuscleGroup[]>([])
+  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string | null>(null)
   const [exercisePerformances, setExercisePerformances] = useState<ExercisePerformance[]>([])
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     loadExercises()
+    loadMuscleGroups()
   }, [])
 
   useEffect(() => {
     if (exercises.length > 0) {
       loadExercisePerformances()
     }
-  }, [exercises])
+  }, [exercises, selectedMuscleGroup])
 
   const loadExercises = async () => {
     try {
@@ -47,12 +50,25 @@ export default function ExercisePRs() {
     }
   }
 
+  const loadMuscleGroups = async () => {
+    try {
+      const groups = await db.getMuscleGroups()
+      setMuscleGroups(groups)
+    } catch (error) {
+      console.error('Failed to load muscle groups:', error)
+    }
+  }
+
   const loadExercisePerformances = async () => {
     try {
       setIsLoading(true)
       const performances: ExercisePerformance[] = []
 
-      for (const exercise of exercises) {
+      const filteredExercises = selectedMuscleGroup 
+        ? exercises.filter(exercise => exercise.muscleGroup === selectedMuscleGroup)
+        : exercises
+
+      for (const exercise of filteredExercises) {
         const completions = await db.exerciseCompletions
           .where('exerciseId')
           .equals(exercise.id!)
@@ -140,7 +156,46 @@ export default function ExercisePRs() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="medieval-title">Personal Records & Progress</div>
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="medieval-title">Personal Records & Progress</div>
+          <div className="text-gray-400 mt-1">
+            {selectedMuscleGroup 
+              ? `${muscleGroups.find(g => g.identifier === selectedMuscleGroup)?.name} exercises`
+              : 'All exercises'
+            }
+          </div>
+        </div>
+      </div>
+
+      {/* Muscle Group Filter */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <button
+          onClick={() => setSelectedMuscleGroup(null)}
+          className={`p-4 rounded-lg text-center transition-all duration-200 ${
+            selectedMuscleGroup === null
+              ? 'bg-medieval-500 text-white ring-2 ring-medieval-400'
+              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+          }`}
+        >
+          <div className="text-2xl mb-1">🏋️</div>
+          <div className="text-sm font-medium">All</div>
+        </button>
+        {muscleGroups.map((group) => (
+          <button
+            key={group.identifier}
+            onClick={() => setSelectedMuscleGroup(group.identifier)}
+            className={`p-4 rounded-lg text-center transition-all duration-200 ${
+              selectedMuscleGroup === group.identifier
+                ? 'ring-2 ring-medieval-400'
+                : 'hover:opacity-90'
+            } ${group.color}`}
+          >
+            <div className="text-2xl mb-1">{group.icon}</div>
+            <div className="text-sm font-medium">{group.name}</div>
+          </button>
+        ))}
+      </div>
 
       {/* Exercise Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
