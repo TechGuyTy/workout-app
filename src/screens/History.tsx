@@ -37,7 +37,6 @@ export default function History() {
       
       // Load sessions: completed OR past in-progress sessions that have completions OR today's workout
       const workoutSessions = await db.getWorkoutSessions(start, end)
-      console.log(workoutSessions);
       
       // Convert to workout history format
       const history: WorkoutHistory[] = workoutSessions.map(session => ({
@@ -168,7 +167,6 @@ export default function History() {
               ) : (
                 <div className="space-y-2">
                   {workoutHistory.map((workout) => {
-                    console.log(workout);
                     const isToday = workout.date === new Date().toISOString().split('T')[0];
                     return (
                       <div
@@ -338,7 +336,7 @@ export default function History() {
                       </div>
                       {completion.createdAt && completion.completedAt && (
                         <div className="text-xs text-medieval-400">
-                          Duration: {formatDuration((new Date(completion.completedAt).getTime() - new Date(completion.createdAt).getTime()) / 1000 / 60)}
+                          Duration: {formatDuration(Math.round((new Date(completion.completedAt).getTime() - new Date(completion.createdAt).getTime()) / (1000 * 60)))}
                         </div>
                       )}
                     </div>

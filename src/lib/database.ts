@@ -274,6 +274,9 @@ export class WorkoutDatabase extends Dexie {
         updatedAt: new Date()
       });
     }
+    await this.workoutSessions.update(session.id!, {
+      updatedAt: new Date()
+    });
     // Also add to sets table for historical tracking
     const setRecords = sets.map(set => ({
       workoutId: 0, // We'll use workoutId 0 for template-based workouts
