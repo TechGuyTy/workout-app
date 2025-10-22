@@ -103,6 +103,23 @@ export default function Today() {
     }
   }
 
+  const handleSelectExercise = async (exercise) => {
+    if (!currentSession || !exercise.id) return;
+    const existing = await db.exerciseCompletions
+      .where({ workoutSessionId: currentSession.id, exerciseId: exercise.id }).first();
+    if (!existing) {
+      await db.exerciseCompletions.add({
+        workoutSessionId: currentSession.id,
+        exerciseId: exercise.id,
+        sets: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        completedAt: new Date()
+      });
+    }
+    setSelectedExercise(exercise);
+  };
+
   if (!selectedMuscleGroup) {
     return (
       <div className="space-y-6">
@@ -174,7 +191,7 @@ export default function Today() {
                 ? 'border-green-500 bg-green-900/20'
                 : 'hover:border-medieval-500'
             }`}
-            onClick={() => setSelectedExercise(exercise)}
+            onClick={() => handleSelectExercise(exercise)}
           >
             <div className="card-body">
               <div className="flex items-center justify-between">

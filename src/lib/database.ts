@@ -248,20 +248,32 @@ export class WorkoutDatabase extends Dexie {
     return !!completion;
   }
 
-  async completeExerciseToday(exerciseId: number, sets: { weight: number; reps: number; rpe?: number }[]): Promise<void> {
+  async completeExerciseToday(
+    exerciseId: number,
+    sets: { weight: number; reps: number; rpe?: number }[]
+  ): Promise<void> {
     const session = await this.getTodayWorkoutSession();
     if (!session) throw new Error('No workout session for today');
-    
-    // Add completion record
-    await this.exerciseCompletions.add({
-      workoutSessionId: session.id!,
-      exerciseId,
-      sets,
-      completedAt: new Date(),
-      createdAt: new Date(),
-      updatedAt: new Date()
-    });
-    
+    // See if it already exists
+    const existing = await this.exerciseCompletions
+      .where({ workoutSessionId: session.id!, exerciseId })
+      .first();
+    if (existing) {
+      await this.exerciseCompletions.update(existing.id!, {
+        sets,
+        completedAt: new Date(),
+        updatedAt: new Date()
+      });
+    } else {
+      await this.exerciseCompletions.add({
+        workoutSessionId: session.id!,
+        exerciseId,
+        sets,
+        completedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+    }
     // Also add to sets table for historical tracking
     const setRecords = sets.map(set => ({
       workoutId: 0, // We'll use workoutId 0 for template-based workouts
@@ -290,7 +302,7 @@ export class WorkoutDatabase extends Dexie {
   async getWorkoutSessionsByDateRange(startDate: string, endDate: string): Promise<WorkoutSession[]> {
     return await this.workoutSessions
       .where('date')
-      .between(startDate, endDate)
+      .between(startDate, endDate, true, true)
       .reverse()
       .sortBy('date');
   }
@@ -300,18 +312,12 @@ export class WorkoutDatabase extends Dexie {
     return sessions.filter(session => session.status === 'completed'); // TODO: Include any in-progress session from past days too.
   }
 
-  // Include sessions marked completed OR past in-progress sessions that have any completions
-  async getCompletedOrWithCompletions(startDate: string, endDate: string): Promise<WorkoutSession[]> {
+  // Include all sessions with any exercise completions
+  async getWorkoutSessions(startDate: string, endDate: string): Promise<WorkoutSession[]> {
     const sessions = await this.getWorkoutSessionsByDateRange(startDate, endDate);
-    const today = new Date().toISOString().split('T')[0];
-
     const results: WorkoutSession[] = [];
     for (const s of sessions) {
-      if (s.status === 'completed') {
-        results.push(s);
-        continue;
-      }
-      if (s.date < today) {
+      // Include past in-progress sessions that have any completions
         const count = await this.exerciseCompletions
           .where('workoutSessionId')
           .equals(s.id!)
@@ -319,7 +325,6 @@ export class WorkoutDatabase extends Dexie {
         if (count > 0) {
           results.push(s);
         }
-      }
     }
     return results;
   }

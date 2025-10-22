@@ -35,8 +35,9 @@ export default function History() {
       setIsLoading(true)
       const { start, end } = getDateRange(dateRange)
       
-      // Load sessions: completed OR past in-progress sessions that have completions
-      const workoutSessions = await db.getCompletedOrWithCompletions(start, end)
+      // Load sessions: completed OR past in-progress sessions that have completions OR today's workout
+      const workoutSessions = await db.getWorkoutSessions(start, end)
+      console.log(workoutSessions);
       
       // Convert to workout history format
       const history: WorkoutHistory[] = workoutSessions.map(session => ({
@@ -44,7 +45,10 @@ export default function History() {
         date: session.date,
         muscleGroup: session.muscleGroup,
         status: session.status,
-        notes: `${session.muscleGroup} Day`
+        notes: `${session.muscleGroup} Day`,
+        duration: session.createdAt && session.updatedAt 
+          ? Math.round((new Date(session.updatedAt).getTime() - new Date(session.createdAt).getTime()) / (1000 * 60))
+          : undefined
       }))
       
       // Sort by date (newest first)
@@ -163,46 +167,57 @@ export default function History() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {workoutHistory.map((workout) => (
-                    <div
-                      key={workout.id}
-                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                        selectedWorkout?.id === workout.id
-                          ? 'border-medieval-500 bg-medieval-900/20'
-                          : 'border-gray-600 hover:border-gray-500'
-                      }`}
-                      onClick={() => loadWorkoutDetails(workout)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium text-white">
-                            {formatDate(workout.date)}
+                  {workoutHistory.map((workout) => {
+                    console.log(workout);
+                    const isToday = workout.date === new Date().toISOString().split('T')[0];
+                    return (
+                      <div
+                        key={workout.id}
+                        className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                          selectedWorkout?.id === workout.id
+                            ? 'border-medieval-500 bg-medieval-900/20'
+                            : 'border-gray-600 hover:border-gray-500'
+                        } ${isToday ? 'ring-2 ring-medieval-400/50' : ''}`}
+                        onClick={() => loadWorkoutDetails(workout)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <div className="font-medium text-white">
+                                {formatDate(workout.date)}
+                              </div>
+                              {isToday && (
+                                <span className="px-2 py-1 text-xs bg-medieval-500/20 text-medieval-400 rounded-full border border-medieval-500/30">
+                                  Today
+                                </span>
+                              )}
+                            </div>
+                            {workout.notes && (
+                              <div className="text-sm text-gray-400 truncate">
+                                {workout.notes}
+                              </div>
+                            )}
                           </div>
-                          {workout.notes && (
-                            <div className="text-sm text-gray-400 truncate">
-                              {workout.notes}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          {workout.duration && (
-                            <div className="text-xs text-gray-400">
-                              {formatDuration(workout.duration)}
-                            </div>
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              deleteWorkout(workout.id!)
-                            }}
-                            className="text-red-400 hover:text-red-300 p-1"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
+                          <div className="flex items-center space-x-2">
+                            {workout.duration && (
+                              <div className="text-xs text-gray-400">
+                                {formatDuration(workout.duration)}
+                              </div>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                deleteWorkout(workout.id!)
+                              }}
+                              className="text-red-400 hover:text-red-300 p-1"
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -321,6 +336,11 @@ export default function History() {
                           </div>
                         ))}
                       </div>
+                      {completion.createdAt && completion.completedAt && (
+                        <div className="text-xs text-medieval-400">
+                          Duration: {formatDuration((new Date(completion.completedAt).getTime() - new Date(completion.createdAt).getTime()) / 1000 / 60)}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )
