@@ -246,9 +246,9 @@ export default function ExercisePRs() {
                       <span className="text-gray-300">Recent Progress</span>
                       <div className={`flex items-center ${progress.isPositive ? 'text-green-400' : 'text-red-400'}`}>
                         {progress.isPositive ? (
-                          "PLACEHOLDER"
+                          "📈📈📈"
                         ) : (
-                          "PLACEHOLDER"
+                          "📉📉📉"
                         )}
                         {progress.isPositive ? '+' : ''}{progress.change} lbs
                       </div>
