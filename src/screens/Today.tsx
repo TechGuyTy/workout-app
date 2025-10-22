@@ -103,13 +103,13 @@ export default function Today() {
     }
   }
 
-  const handleSelectExercise = async (exercise) => {
+  const handleSelectExercise = async (exercise: Exercise) => {
     if (!currentSession || !exercise.id) return;
     const existing = await db.exerciseCompletions
-      .where({ workoutSessionId: currentSession.id, exerciseId: exercise.id }).first();
+      .where({ workoutSessionId: currentSession.id!, exerciseId: exercise.id }).first();
     if (!existing) {
       await db.exerciseCompletions.add({
-        workoutSessionId: currentSession.id,
+        workoutSessionId: currentSession.id!,
         exerciseId: exercise.id,
         sets: [],
         createdAt: new Date(),
