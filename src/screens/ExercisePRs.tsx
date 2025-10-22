@@ -18,7 +18,7 @@ interface ExercisePerformance {
     date: string
     weight: number
     reps: number
-    oneRM: number
+    maxWeight: number
   }>
 }
 
@@ -68,7 +68,7 @@ export default function ExercisePRs() {
               date: formatDate(set.createdAt),
               weight: set.weight,
               reps: set.reps,
-              oneRM: calculate1RM(set.weight, set.reps)
+              maxWeight: set.weight
             }))
 
           performances.push({
@@ -100,8 +100,8 @@ export default function ExercisePRs() {
     if (!performance || performance.trend.length < 2) return null
 
     const recent = performance.trend.slice(-5)
-    const first = recent[0].oneRM
-    const last = recent[recent.length - 1].oneRM
+    const first = recent[0].maxWeight
+    const last = recent[recent.length - 1].maxWeight
     const change = last - first
     const percentChange = (change / first) * 100
 
@@ -216,7 +216,7 @@ export default function ExercisePRs() {
                       />
                       <Line
                         type="monotone"
-                        dataKey="oneRM"
+                        dataKey="maxWeight"
                         stroke="#F2751A"
                         strokeWidth={2}
                         dot={{ fill: '#F2751A', strokeWidth: 2, r: 3 }}
@@ -334,7 +334,7 @@ function ExerciseDetailModal({ exercise, performance, onClose }: ExerciseDetailM
           {/* Progress Chart */}
           {performance.trend.length > 1 && (
             <div className="mb-6">
-              <h4 className="medieval-subtitle mb-4">1RM Progress</h4>
+              <h4 className="medieval-subtitle mb-4">Max Weight Progress</h4>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={performance.trend}>
@@ -360,7 +360,7 @@ function ExerciseDetailModal({ exercise, performance, onClose }: ExerciseDetailM
                     />
                     <Line
                       type="monotone"
-                      dataKey="oneRM"
+                      dataKey="maxWeight"
                       stroke="#F2751A"
                       strokeWidth={3}
                       dot={{ fill: '#F2751A', strokeWidth: 2, r: 4 }}
